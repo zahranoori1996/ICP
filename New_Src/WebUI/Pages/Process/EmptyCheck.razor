@@ -1,0 +1,394 @@
+@page "/process/empty"
+@using WebUI.Services
+@using Application.DTOs  @* ✅ این خط اضافه شد تا SafeId شناخته شود *@
+@using EmptyRowDto = Application.DTOs.EmptyRowDto
+@inject ProjectService ProjectService
+@inject CorrectionService CorrectionService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>ICP - Empty Check</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
+
+@* Loading Overlay *@
+@if (_isLoading || _isDeleting)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+        </MudPaper>
+    </div>
+}
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="justify-space-between align-center">
+            <div class="mb-4">
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">Empty Check</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    @if (!string.IsNullOrEmpty(_projectName))
+                    {
+                        <span>Project: <strong>@_projectName</strong> | </span>
+                    }
+                    Detect empty or outlier samples where most elements are below average
+                </MudText>
+            </div>
+            <ProcessNav CurrentStep="empty" />
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+            <MudLink Href="/projects">Go to Projects</MudLink>
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="me-2" />
+                        Settings
+                    </MudText>
+
+                    <MudSlider @bind-Value="_thresholdPercent"
+                               Min="10"
+                               Max="100"
+                               Step="5"
+                               Color="Color.Primary"
+                               Class="mb-2">
+                        Threshold: @_thresholdPercent%
+                    </MudSlider>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">
+                        Samples with values below this % of column average will be flagged
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="FindEmptyRows"
+                               Disabled="_isLoading">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                        }
+                        Find Empty Rows
+                    </MudButton>
+                </MudPaper>
+
+                @if (_emptyRows != null && _emptyRows.Any())
+                {
+                    <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                        <MudText Typo="Typo.h6" Class="mb-2">Summary</MudText>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-space-between">
+                                <MudText>Empty Rows Found:</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error">@_totalCount</MudChip>
+                            </div>
+                            @if (_selectedRows.Any())
+                            {
+                                <div class="d-flex justify-space-between">
+                                    <MudText>Selected:</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">@_selectedRows.Count</MudChip>
+                                </div>
+                            }
+
+                            @* Progress Bar for Delete Operation *@
+                            @if (_isDeleting && _deleteProgress > 0)
+                            {
+                                <MudDivider Class="my-2" />
+                                <MudText Typo="Typo.caption" Class="mb-1">
+                                    Deleting: @_deletedCount / @_totalToDelete rows
+                                </MudText>
+                                <MudProgressLinear Value="@_deleteProgress"
+                                                   Color="Color.Error"
+                                                   Striped="true"
+                                                   Size="Size.Large"
+                                                   Class="mb-2">
+                                    <MudText Typo="Typo.caption">@_deleteProgress.ToString("F0")%</MudText>
+                                </MudProgressLinear>
+                            }
+
+                            <MudDivider Class="my-2" />
+
+                            @* Delete All *@
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Error"
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.DeleteForever"
+                                       OnClick="DeleteAllRows"
+                                       Disabled="@(_isDeleting || _totalCount == 0)">
+                                @if (_isDeleting)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                                }
+                                DELETE ALL (@_totalCount)
+                            </MudButton>
+
+                            <MudDivider Class="my-2" />
+
+                            @* Select All *@
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.DoneAll"
+                                       OnClick="SelectAllRows"
+                                       Disabled="@(_totalCount == 0)">
+                                Select ALL (@_totalCount)
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.Clear"
+                                       OnClick="ClearSelection"
+                                       Disabled="@(!_selectedRows.Any())">
+                                Clear Selection
+                            </MudButton>
+
+                            <MudDivider Class="my-2" />
+
+                            @* Delete Selected *@
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Warning"
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.Delete"
+                                       OnClick="DeleteSelectedRows"
+                                       Disabled="@(!_selectedRows.Any() || _isDeleting)">
+                                Delete Selected (@_selectedRows.Count)
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Info"
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.SelectAll"
+                                       OnClick="SelectAllOnPage">
+                                Select Page (@_pagedRows.Count)
+                            </MudButton>
+                        </div>
+                    </MudPaper>
+                }
+            </MudItem>
+
+            <MudItem xs="12" md="9" >
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <div class="d-flex justify-space-between align-center mb-4">
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.RemoveCircleOutline" Color="Color.Warning" Class="me-2" />
+                            Empty/Outlier Samples
+                        </MudText>
+                        @if (_emptyRows != null && _emptyRows.Any())
+                        {
+                            <MudText Typo="Typo.caption">
+                                Showing @((_currentPage - 1) * _pageSize + 1) - @Math.Min(_currentPage * _pageSize, _totalCount) of @_totalCount
+                            </MudText>
+                        }
+                    </div>
+
+                    @if (_emptyRows == null)
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            Click "Find Empty Rows" to detect samples with unusually low values.
+                        </MudAlert>
+                    }
+                    else if (!_emptyRows.Any())
+                    {
+                        <MudAlert Severity="Severity.Success">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="me-2" />
+                            No empty or outlier samples detected!
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTable Items="@_pagedRows"
+                                  Hover="true"
+                                  Dense="true"
+                                  FixedHeader="true"
+                                  Height="362px"
+                                  T="EmptyRowDto"
+                                  Breakpoint="Breakpoint.None"
+                                  HorizontalScrollbar="true"
+                                  OnRowClick="@((args) => { if (args.Item != null) SelectRow(args.Item); })">
+                            <HeaderContent>
+                                <MudTh><MudCheckBox T="bool" Value="@IsAllSelectedOnPage()" ValueChanged="@((bool val) => ToggleSelectAllOnPage(val))" /></MudTh>
+                                <MudTh>Solution Label</MudTh>
+                                <MudTh>Elements Below</MudTh>
+                                <MudTh>Total</MudTh>
+                                <MudTh>Score</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Action</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>
+                                    @* ✅ اینجا SafeId استفاده شده است *@
+                                    <MudCheckBox T="bool" @key="@context.SafeId"
+                                                 Value="@_selectedRows.Contains(context)"
+                                                 ValueChanged="@((bool val) => ToggleRowSelection(context, val))" />
+                                </MudTd>
+                                <MudTd>
+                                    <MudText Class="fw-medium">@context.SolutionLabel</MudText>
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Error">
+                                        @context.ElementsBelowThreshold
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd>@context.TotalElementsChecked</MudTd>
+                                <MudTd>
+                                    <MudProgressLinear Value="@((double)context.OverallScore)"
+                                                       Color="@GetScoreColor(context.OverallScore)"
+                                                       Size="Size.Small"
+                                                       Style="width: 80px;" />
+                                    <MudText Typo="Typo.caption">@context.OverallScore.ToString("F1")%</MudText>
+                                </MudTd>
+                                <MudTd>
+                                    @if (context.OverallScore < 30)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Error">Empty</MudChip>
+                                    }
+                                    else if (context.OverallScore < 50)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">Low</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info">Borderline</MudChip>
+                                    }
+                                </MudTd>
+                                <MudTd>
+                                    <MudTooltip Text="Delete this row">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Color="Color.Error"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => DeleteSingleRow(context))" />
+                                    </MudTooltip>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        @* Pagination *@
+                        <div class="d-flex justify-center align-center mt-4 gap-4 change-flex-item">
+                            <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged"
+                                       Label="Per Page" Variant="Variant.Outlined" Dense="true" Style="width: 100px;">
+                                <MudSelectItem Value="10">10</MudSelectItem>
+                                <MudSelectItem Value="20">20</MudSelectItem>
+                                <MudSelectItem Value="30">30</MudSelectItem>
+                                <MudSelectItem Value="40">40</MudSelectItem>
+                                <MudSelectItem Value="50">50</MudSelectItem>
+                                <MudSelectItem Value="60">60</MudSelectItem>
+                                <MudSelectItem Value="70">70</MudSelectItem>
+                                <MudSelectItem Value="80">80</MudSelectItem>
+                                <MudSelectItem Value="90">90</MudSelectItem>
+                                <MudSelectItem Value="100">100</MudSelectItem>
+                            </MudSelect>
+                            <MudPagination Count="@_totalPages"
+                                           Selected="_currentPage"
+                                           SelectedChanged="OnPageChanged"
+                                           ShowFirstButton="true"
+                                           ShowLastButton="true"
+                                           BoundaryCount="1"
+                                           MiddleCount="3" />
+                        </div>
+
+                        @* Element Details *@
+                        <MudExpansionPanels Class="mt-4">
+                            <MudExpansionPanel Text="Element Details" @bind-Expanded="_detailsExpanded">
+                                @if (_selectedEmpty != null)
+                                {
+                                    <MudText Typo="Typo.subtitle2" Class="mb-2">
+                                        Selected: <strong>@_selectedEmpty.SolutionLabel</strong>
+                                    </MudText>
+                                    <MudSimpleTable FixedHeader="true"
+                                        
+                                        Breakpoint="Breakpoint.None"
+                                                    HorizontalScrollbar="true"
+                                        Dense="true" Style="overflow:scroll;height:170px;">
+                                        <thead>
+                                            <tr>
+                                                <th>Element</th>
+                                                <th>Value</th>
+                                                <th>Average</th>
+                                                <th>% of Avg</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var element in _selectedEmpty.PercentOfAverage.OrderBy(x => x.Value).Take(15))
+                                            {
+                                                <tr>
+                                                    <td>@element.Key</td>
+                                                    <td>@(_selectedEmpty.ElementValues.TryGetValue(element.Key, out var v) ? v?.ToString("F4") : "-")</td>
+                                                    <td>@(_selectedEmpty.ElementAverages.TryGetValue(element.Key, out var a) ? a.ToString("F4") : "-")</td>
+                                                    <td>
+                                                        <MudText Color="@((decimal)element.Value < _thresholdPercent ? Color.Error : Color.Default)">
+                                                            @element.Value.ToString("F1")%
+                                                        </MudText>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </MudSimpleTable>
+                                }
+                                else
+                                {
+                                    <MudText Class="mud-text-secondary">Click on a row to see element details</MudText>
+                                }
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        height: 200px;
+        overflow: scroll;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 0px 15px 0px 16px;
+        padding-inline-start: 16px;
+        padding-inline-end: 24px;
+    }
+
+    .mud-table-cell {
+        white-space: nowrap; /* جلوگیری از شکستن متن در سلول‌ها */
+    }
+
+    .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        /* height: 362px;
+        overflow: scroll; */
+    }
+
+    
+</style>
+
+    

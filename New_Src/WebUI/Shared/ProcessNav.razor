@@ -1,0 +1,80 @@
+@using MudBlazor
+@inject NavigationManager NavManager
+
+<div class="d-none d-lg-block">
+    <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" Class="process-nav">
+        @foreach (var step in Steps)
+        {
+            <MudButton Href="@step.Href"
+                       Style="@(CurrentStep == step.Key ? "background-color: #4cc2e6; color: #000; font-weight:600;" : "")"
+                       Variant="@(CurrentStep == step.Key ? Variant.Filled : Variant.Outlined)">
+                <MudIcon Icon="@step.Icon" Size="Size.Small" Class="me-1" />
+                @step.Text
+            </MudButton>
+        }
+    </MudButtonGroup>
+</div>
+
+<div class="d-block d-lg-none ">
+    <MudSelect T="string"
+               Label="Step selection"
+               Value="@CurrentStep"
+               ValueChanged="NavigateToStep"
+               Variant="Variant.Outlined"
+               FullWidth="true"
+               AdornmentIcon="@Icons.Material.Filled.Menu"
+               AdornmentColor="Color.Primary">
+
+        @foreach (var step in Steps)
+        {
+            <MudSelectItem Value="@step.Key">
+
+                @* 👈 تغییر اصلی اینجاست: استفاده از div با کلاس d-flex و align-center *@
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@step.Icon" Size="Size.Small" Class="me-2" />
+                    <span>@step.Text</span>
+
+                    @* آیکون تیک باید به انتهای ردیف فلکس برود (با استفاده از ms-auto) *@
+                    @if (CurrentStep == step.Key)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Class="ms-auto" Color="Color.Success" />
+                    }
+                </div>
+            </MudSelectItem>
+        }
+    </MudSelect>
+</div>
+
+@code {
+   
+    [Parameter]
+    public string CurrentStep { get; set; } = "weight";
+
+    // تعریف ساختار داده‌ای مراحل برای استفاده در هر دو حالت (دسکتاپ و موبایل)
+    private readonly List<(string Key, string Text, string Icon, string Href)> Steps = new()
+    {
+        ("weight", "Weight", Icons.Material.Filled.FitnessCenter, "/process/weight"),
+        ("volume", "Volume", Icons.Material.Filled.Water, "/process/volume"),
+        ("df", "DF", Icons.Material.Filled.Compress, "/process/df"),
+        ("empty", "Empty", Icons.Material.Filled.RemoveCircleOutline, "/process/empty"),
+        ("crm", "CRM", Icons.Material.Filled.Verified, "/process/crm"),
+        ("drift", "Drift", Icons.Material.Filled.TrendingUp, "/process/drift"),
+        ("result", "Result", Icons.Material.Filled.CheckCircle, "/process/result")
+    };
+
+    /// <summary>
+    /// متدی برای مدیریت تغییر مقدار در MudSelect و انجام مسیریابی
+    /// </summary>
+    private void NavigateToStep(string selectedStepKey)
+    {
+        // اطمینان از اینکه مسیریابی فقط در صورت تغییر مرحله انجام شود
+        if (CurrentStep != selectedStepKey)
+        {
+            var step = Steps.FirstOrDefault(s => s.Key == selectedStepKey);
+            if (step.Key != null)
+            {
+                NavManager.NavigateTo(step.Href);
+            }
+        }
+    }
+}

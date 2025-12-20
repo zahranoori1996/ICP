@@ -1,0 +1,158 @@
+﻿/* ===================================
+   ICP - Login Page Styles
+   =================================== */
+
+
+.login-container {
+    min-height: 100vh;
+    background: var(--bg-gradient-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-wrapper {
+    display: flex;
+    width: 100%;
+    max-width: 900px;
+    min-height: 520px;
+    -webkit-box-shadow: 8px 8px 24px -20px rgba(66, 68, 90, 1);
+    -moz-box-shadow: 8px 8px 24px -20px rgba(66, 68, 90, 1);
+    box-shadow: 8px 8px 24px -20px rgba(66, 68, 90, 1);
+    border-radius: 20px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.login-logo-panel {
+    flex: 0 0 42%;
+    background: var(--secondary-color);
+    background: var(--bg-gradient-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px 0 0 20px;
+}
+
+.login-logo-text {
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: 900;
+    font-size: 6rem;
+    color: #2c3e50;
+    letter-spacing: -2px;
+}
+
+.login-logo-subtitle {
+    color: var(--text-white);
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+    text-align: center;
+    font-weight: 700;
+}
+
+.login-form-panel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: var(--bg-secondary);
+    border-radius: 0 20px 20px 0;
+}
+
+.login-form-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 2rem;
+}
+
+.login-welcome-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2rem;
+    font-size: 1.5rem;
+}
+
+.login-btn {
+    background: var(--bg-blue);
+    color: var(--text-white) !important;
+    font-weight: 600 !important;
+    height: 56px !important;
+    border-radius: 16px !important;
+}
+
+    .login-btn:hover {
+        background: var(--bg-gradient-blue)!important;
+    }
+
+.guest-btn {
+    border: 2px solid var(--text-muted) !important;
+    color: #64748b !important;
+    font-weight: 600 !important;
+    height: 52px !important;
+    border-radius: 16px !important;
+    background: transparent !important;
+}
+
+    .guest-btn:hover {
+        background: #f1f5f9 !important;
+    }
+
+.login-link {
+    color: #3b82f6;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+    .login-link:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+
+@media (max-width: 768px) {
+    .login-wrapper {
+        flex-direction: column;
+    }
+
+    .login-logo-panel {
+        flex: 0 0 auto;
+        min-height: 200px;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .login-logo-text {
+        font-size: 4rem;
+
+    }
+    .login-logo-text img{
+        width:60px;
+    }
+}
+
+
+@media (max-width: 380px) {
+    .login-logo-text {
+        font-size: 2rem;
+    }
+
+    .login-logo-subtitle {
+        font-size: 1rem;
+    }
+
+    .login-welcome-title {
+        font-size: .8rem;
+    }
+
+    .login-form-card {
+        width: 100%;
+        max-width: 420px;
+        padding: .5rem;
+    }
+
+    .copy-right {
+        font-weight: 500;
+        font-size: .7rem;
+    }
+}
+

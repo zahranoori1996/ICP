@@ -1,0 +1,300 @@
+@page "/pivot"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject PivotService PivotService
+@inject NavigationManager NavManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>ICP - Pivot Table</PageTitle>
+<NavigationLock ConfirmExternalNavigation="_isLoading" />
+
+@if (_isLoading)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Loading Data...</MudText>
+        </MudPaper>
+    </div>
+}
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @* Header *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="d-flex justify-space-between align-center flex-wrap gap-4">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">Pivot Table</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    @if (_projectName != null)
+                    {
+                        <span>Project: <strong>@_projectName</strong></span>
+                    }
+                    else
+                    {
+                        <span>Select a project to view data</span>
+                    }
+                </MudText>
+            </div>
+            <div class="d-flex gap-2 btn-change-export">
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.FolderOpen"
+                           Class="btn-pivot"
+                           OnClick="SelectProject">
+                    Change Project
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="ExportData"
+                           Class="btn-pivot"
+                           Disabled="@(_pivotData == null)">
+                    Export
+                </MudButton>
+            </div>
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center justify-center custom-card-all text-center" Style="min-height: 400px;">
+            <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Color="Color.Primary" Class="mb-4" Style="font-size: 64px; opacity: 0.5;" />
+            <MudText Typo="Typo.h5" Class="mb-2">No Project Selected</MudText>
+            <MudText Typo="Typo.body1" Class="mud-text-secondary mb-4 text-center">Please select a project to view pivot table data</MudText>
+            <MudButton Class="btn-pivot" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FolderOpen" Href="/projects">
+                Select Project
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        @* Filters Panel - Only show when not initial loading *@
+        @if (!_isLoading || _pivotData != null)
+        {
+            <MudExpansionPanels Class="mb-4 custom-card-all">
+                <MudExpansionPanel Text="Filters & Options" Expanded="true">
+                    <MudGrid Style="align-items:center">
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_searchText"
+                                          Label="Search"
+                                          Placeholder="Search in data..."
+                                          Variant="Variant.Outlined"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Filled.Search"
+                                          Immediate="true"
+                                          DebounceInterval="500"
+                                          Disabled="_isLoading"
+                                          OnDebounceIntervalElapsed="LoadData" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="string"
+                                       Label="@($"Elements ({_allElements.Count})")"
+                                       MultiSelection="true"
+                                       @bind-SelectedValues="_selectedElements"
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       Disabled="_isLoading"
+                                       AnchorOrigin="Origin.BottomCenter"
+                                       TransformOrigin="Origin.TopCenter">
+                                @foreach (var element in _allElements)
+                                {
+                                    <MudSelectItem Value="@element">@element</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="6" md="2">
+                            <MudNumericField @bind-Value="_decimalPlaces"
+                                             Label="Decimals"
+                                             Variant="Variant.Outlined"
+                                             Disabled="_isLoading"
+                                             Min="0"
+                                             Max="6" />
+                        </MudItem>
+                        <MudItem xs="6" md="2">
+                            <MudCheckBox @bind-Value="_useOxide"
+                                         Label="Use Oxide"
+                                         Disabled="_isLoading"
+                                         Color="Color.Primary" />
+                        </MudItem>
+                        <MudItem xs="12" md="1">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       FullWidth="true"
+                                       OnClick="LoadData"
+                                       Disabled="_isLoading">
+                                Apply
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+
+        @* Data Table *@
+        <MudPaper Elevation="0" Class="pa-0 custom-card-all">
+            @if (_isLoading)
+            {
+                @* <div class="d-flex flex-column justify-center align-center py-8" style="min-height: 300px;">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="mb-4" />
+                    <MudText Typo="Typo.body1" Class="mud-text-secondary">Loading data...</MudText>
+                </div> *@
+            }
+            else if (_pivotData == null || !_pivotData.Rows.Any())
+            {
+                <div class="d-flex flex-column justify-center align-center py-8" style="min-height: 300px;">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Class="mb-4" Style="font-size: 48px; opacity: 0.3;" />
+                    <MudText Typo="Typo.h6" Class="mb-2">No Data Found</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Try adjusting your filters or select different elements</MudText>
+                </div>
+            }
+            else
+            {
+                <div style="overflow-x: auto;">
+                    <MudTable Items="@_pivotData.Rows"
+                              Hover="true"
+                              Striped="true"
+                              Dense="true"
+                              FixedHeader="true"
+                              Breakpoint="Breakpoint.None" HorizontalScrollbar="true" Class="table-weight"
+                              Height="380px"
+                              RowsPerPage="@_pageSize"
+                              Loading="_isLoading">
+                        <HeaderContent>
+                            <MudTh Style="position: sticky; left: 0; background: var(--mud-palette-surface); z-index: 1;">
+                                <MudTableSortLabel SortBy="new Func<AdvancedPivotRowDto, object>(x => x.SolutionLabel)">
+                                    Solution Label
+                                </MudTableSortLabel>
+                            </MudTh>
+                            @if (_hasRepeats)
+                            {
+                                <MudTh>Set</MudTh>
+                            }
+                            @foreach (var col in _displayColumns)
+                            {
+                                <MudTh>
+                                    <div class="d-flex flex-column">
+                                        <span>@col</span>
+                                        @if (_pivotData.Metadata?.ColumnStats.TryGetValue(col, out var stats) == true)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                μ=@(stats.Mean?.ToString($"F{_decimalPlaces}") ?? "-")
+                                            </MudText>
+                                        }
+                                    </div>
+                                </MudTh>
+                            }
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd Style="position: sticky; left: 0; background: var(--mud-palette-surface); z-index: 1; font-weight: 500;">
+                                @context.SolutionLabel
+                            </MudTd>
+                            @if (_hasRepeats)
+                            {
+                                <MudTd>
+                                    @if (context.SetSize > 1)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info">@(context.SetIndex + 1)/@context.SetSize</MudChip>
+                                    }
+                                </MudTd>
+                            }
+                            @foreach (var col in _displayColumns)
+                            {
+                                <MudTd Style="text-align: left;">
+                                    @if (context.Values.TryGetValue(col, out var val) && val.HasValue)
+                                    {
+                                        @val.Value.ToString($"F{_decimalPlaces}")
+                                    }
+                                    else
+                                    {
+                                        <span class="mud-text-disabled">-</span>
+                                    }
+                                </MudTd>
+                            }
+                        </RowTemplate>
+                        <PagerContent>
+                            
+                            <div class="d-flex justify-center align-center pa-4 gap-4 change-flex-item">
+                                <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged"
+                                           Label="Per Page"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Class="perpage-pivot"
+                                           Style="width: 100px;">
+                                    <MudSelectItem Value="10">10</MudSelectItem>
+                                    <MudSelectItem Value="20">20</MudSelectItem>
+                                    <MudSelectItem Value="30">30</MudSelectItem>
+                                    <MudSelectItem Value="40">40</MudSelectItem>
+                                    <MudSelectItem Value="50">50</MudSelectItem>
+                                    <MudSelectItem Value="60">60</MudSelectItem>
+                                    <MudSelectItem Value="70">70</MudSelectItem>
+                                    <MudSelectItem Value="80">80</MudSelectItem>
+                                    <MudSelectItem Value="90">90</MudSelectItem>
+                                    <MudSelectItem Value="100">100</MudSelectItem>
+                                </MudSelect>
+
+                                <MudPagination Count="@_totalPages"
+                                               Selected="_currentPage"
+                                               SelectedChanged="OnPageChanged"
+                                               ShowFirstButton="true"
+                                               ShowLastButton="true"
+                                               BoundaryCount="1"
+                                               MiddleCount="3" />
+
+                                <MudText Typo="Typo.body2">
+                                    Total: @_pivotData.TotalCount rows |
+                                    Showing: @((_currentPage - 1) * _pageSize + 1) - @Math.Min(_currentPage * _pageSize, _pivotData.TotalCount)
+                                </MudText>
+                            </div>
+                        </PagerContent>
+                    </MudTable>
+                </div>
+            }
+        </MudPaper>
+    }
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell,
+    .mud-table-dense * .mud-table-row .mud-table-cell div {
+        /* جلوگیری از شکستن متن و تضمین اینکه عرض بر اساس محتوا باشد */
+        white-space: nowrap;
+        padding: 10px;
+    }
+
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        /* height: 400px; */
+        table-layout: auto !important;
+        overflow: scroll;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 4px 7px 4px 8px;
+        padding-inline-start: 8px;
+        padding-inline-end: 12px;
+        white-space: nowrap;
+    }
+
+    .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        height: 500px;
+        overflow: scroll;
+    }
+</style>

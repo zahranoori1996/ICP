@@ -1,0 +1,32 @@
+﻿/* ===================================
+   ICP - D Page Styles
+   =================================== */
+
+@media (max-width: 768px) {
+
+}
+
+@media (max-width: 600px) {
+    .btn-pivot {
+        font-size: .7rem;
+    }
+    .btn-change-export {
+        flex-wrap: wrap;
+    }
+    .table-weight {
+        min-width: 100%;
+    }
+   
+}
+
+@media (max-width: 380px) {
+  
+}
+@media (max-width: 375px) {
+    .mud-table .mud-table-pagination .mud-select {
+        margin-left: 0;
+        margin-right: 0;
+        margin-inline-start: 0;
+        margin-inline-end: 0;
+    }
+}

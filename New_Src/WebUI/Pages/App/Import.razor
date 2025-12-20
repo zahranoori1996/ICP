@@ -1,0 +1,473 @@
+﻿@page "/import"
+@using MudBlazor
+@using WebUI.Services
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject AuthService AuthService
+@inject ImportService ImportService
+@inject NavigationManager NavManager
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - Import Data</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="isLoading" />
+@* Loading Overlay *@
+@if (isLoading)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+
+        </MudPaper>
+    </div>
+}
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
+
+    <MudPaper Elevation="0" Class="pa-4 mb-4 d-flex justify-space-between align-center custom-card-all ">
+        <div>
+            <MudText Typo="Typo.h4" Class="fw-bold h4-import-data">Import Data</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary p-import-data">Upload CSV or Excel files to create a new project</MudText>
+        </div>
+        <MudButton Variant="Variant.Text"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="GoToDashboard"
+                   Class="back-to-dashboard">
+            Back to Dashboard
+        </MudButton>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" md="7">
+            <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+
+                <MudTextField @bind-Value="projectName"
+                              Label="Project Name"
+                              Variant="Variant.Outlined"
+                              Placeholder="Enter project name..."
+                              Required="true"
+                              RequiredError="Project name is required"
+                              Class="mb-4" />
+
+                    <div style="position: relative; width: 100%; height: 200px;" class="mb-4">
+
+                        <MudPaper Height="100%"
+                                  Outlined="true"
+                                  Class="@GetDropZoneClass()"
+                                  Style="width: 100%; height: 100%;">
+
+                            <div class="d-flex flex-column align-center justify-center drop-file" style="height: 100%;">
+                                @if (fileContent == null)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CloudUpload"
+                                             Size="Size.Large"
+                                             Class="mb-2 color-light-blue" />
+                                    <MudText Typo="Typo.h6">Drop file here or click to browse</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                                        Supported formats: CSV, Excel (.xlsx, .xls), TXT
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        Maximum file size: 200MB
+                                    </MudText>
+                                }
+                                else
+                                {
+                                    <div class="d-flex align-center gap-3" style="position: relative; z-index: 20;">
+                                        <MudIcon Icon="@fileIcon" Size="Size.Large" Color="Color.Success" />
+                                        <div>
+                                            <MudText Typo="Typo.subtitle1" Class="fw-bold">@fileName</MudText>
+                                            <MudText Typo="Typo.body2" Class="mud-text-secondary">@fileSize</MudText>
+                                        </div>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                       Size="Size.Small"
+                                                       OnClick="ClearFile"
+                                                       Color="Color.Error" />
+                                    </div>
+                                }
+                            </div>
+                        </MudPaper>
+
+                        @if (fileContent == null)
+                        {
+                            <InputFile OnChange="OnInputFileChangeStandard"
+                                       accept=".csv, .xlsx, .xls, .txt"
+                                       style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;" />
+                        }
+                    </div>
+
+                <MudExpansionPanels Class="mt-4" Elevation="0">
+                    <MudExpansionPanel Text="Advanced Options" Expanded="false">
+                        <MudGrid>
+                            <MudItem xs="12" sm="6">
+                                <MudSelect @bind-Value="delimiter"
+                                           Label="Delimiter"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense">
+                                    <MudSelectItem Value="@(",")">Comma (,)</MudSelectItem>
+                                    <MudSelectItem Value="@(";")">Semicolon (;)</MudSelectItem>
+                                    <MudSelectItem Value="@("\t")">Tab</MudSelectItem>
+                                    <MudSelectItem Value="@("|")">Pipe (|)</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField @bind-Value="headerRow"
+                                                 Label="Header Row"
+                                                 Variant="Variant.Outlined"
+                                                 Min="1"
+                                                 Max="100"
+                                                 Margin="Margin.Dense" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudCheckBox @bind-Value="skipLastRow"
+                                             Label="Skip last row"
+                                             Color="Color.Primary" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudCheckBox @bind-Value="autoDetectType"
+                                             Label="Auto-detect sample types"
+                                             Color="Color.Primary" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+
+                <div class="d-flex gap-3 mt-6">
+                    <MudButton Variant="Variant.Outlined"
+                               Class="color-dark-blue btn-preview"
+                               StartIcon="@Icons.Material.Filled.Preview"
+                               OnClick="PreviewFile"
+                               Disabled="@(fileContent == null || isLoading)">
+                        Preview
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Upload"
+                               OnClick="ImportFile"
+                               Disabled="@(! CanImport)"
+                               Class="flex-grow-1 color-bg-dark-blue ">
+                        @if (isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                            <span>Importing...</span>
+                        }
+                        else
+                        {
+                            <span>Import Data</span>
+                        }
+                    </MudButton>
+                </div>
+
+                @if (isLoading)
+                {
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mt-4" />
+                }
+
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="5" Class="hidden-mobile">
+            <MudPaper Elevation="0" Class="pa-4 custom-card-all" Style="min-height: 400px;">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.TableView" Class="me-2" />
+                    Preview
+                </MudText>
+
+                @if (previewData == null)
+                {
+                    <div class="d-flex flex-column align-center justify-center" style="height: 300px;">
+                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile"
+                                 Size="Size.Large"
+                                 Color="Color.Default"
+                                 Style="opacity: 0.3;" />
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
+                            Select a file and click Preview
+                        </MudText>
+                    </div>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+                        @previewData.SampleRows.Count rows | @previewData.Columns.Count columns
+                    </MudAlert>
+
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Detected Columns:</MudText>
+                    <div class="mb-4">
+                        @foreach (var col in previewData.Columns.Take(10))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" Class="ma-1">@col</MudChip>
+                        }
+                        @if (previewData.Columns.Count > 10)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Class="ma-1">+@(previewData.Columns.Count - 10) more</MudChip>
+                        }
+                    </div>
+
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Sample Data:</MudText>
+                    <MudTable Items="@previewData.SampleRows.Take(5)" Dense="true" Hover="true" Bordered="true">
+                        <HeaderContent>
+                            @foreach (var col in previewData.Columns.Take(5))
+                            {
+                                <MudTh>@col</MudTh>
+                            }
+                        </HeaderContent>
+                        <RowTemplate>
+                            @foreach (var col in previewData.Columns.Take(5))
+                            {
+                                <MudTd>@GetCellValue(context, col)</MudTd>
+                            }
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="pa-6 mt-4 custom-card-all">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Class="me-2" />
+                    Recent Imports
+                </MudText>
+
+                @if (recentImports.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No recent imports</MudText>
+                }
+                else
+                {
+                    @foreach (var import in recentImports)
+                    {
+                        <div class="d-flex justify-space-between align-center pa-2">
+                            <div class="d-flex align-center gap-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Primary" Size="Size.Small" />
+                                <span>@import.Name</span>
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success">@import.Status</MudChip>
+                        </div>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+</style>
+
+@code {
+    private IBrowserFile? selectedFile;
+    private byte[]? fileContent; // Store file content for reuse
+    private string fileName = "";
+    private string fileContentType = "";
+    private long fileSizeBytes;
+
+    private string projectName = "";
+    private string delimiter = ",";
+    private int headerRow = 1;
+    private bool skipLastRow = true;
+    private bool autoDetectType = true;
+    private bool isLoading;
+    private PreviewResult? previewData;
+    private List<RecentImport> recentImports = new();
+
+    private string fileIcon => GetFileIcon();
+    private string fileSize => fileSizeBytes > 0 ? FormatFileSize(fileSizeBytes) : "";
+    private bool CanImport => fileContent != null && !string.IsNullOrWhiteSpace(projectName) && !isLoading;
+
+    protected override void OnInitialized()
+    {
+        var user = AuthService.GetCurrentUser();
+        if (user == null || !user.IsAuthenticated)
+        {
+            NavManager.NavigateTo("/login");
+        }
+    }
+
+    private void GoToDashboard() => NavManager.NavigateTo("/dashboard");
+
+    private string GetDropZoneClass()
+    {
+        return fileContent != null
+            ? "d-flex flex-column align-center justify-center border-success"
+            : "d-flex flex-column align-center justify-center";
+    }
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        await ProcessFile(file);
+    }
+    private async Task OnFileSelected(IBrowserFile file)
+    {
+        if (file == null) return;
+        await ProcessFile(file);
+    }
+
+    private async Task ProcessFile(IBrowserFile file)
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Store file info
+            selectedFile = file;
+            fileName = file.Name;
+            fileContentType = file.ContentType ?? "application/octet-stream";
+            fileSizeBytes = file.Size;
+
+            // Read and store file content (max 200MB)
+            using var ms = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 200 * 1024 * 1024).CopyToAsync(ms);
+            fileContent = ms.ToArray();
+
+            if (string.IsNullOrWhiteSpace(projectName))
+            {
+                projectName = Path.GetFileNameWithoutExtension(fileName);
+            }
+
+            // Auto-preview
+            await DoPreview();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error reading file: {ex.Message}", Severity.Error);
+            ClearFile();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ClearFile()
+    {
+        selectedFile = null;
+        fileContent = null;
+        fileName = "";
+        fileContentType = "";
+        fileSizeBytes = 0;
+        previewData = null;
+    }
+
+    private async Task PreviewFile()
+    {
+        await DoPreview();
+    }
+
+    private async Task DoPreview()
+    {
+        if (fileContent == null || fileContent.Length == 0) return;
+
+        try
+        {
+            var result = await ImportService.PreviewFileAsync(fileContent, fileName, fileContentType, 10);
+
+            if (result.Succeeded && result.Data != null)
+            {
+                previewData = result.Data;
+                Snackbar.Add("Preview loaded", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Preview failed", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ImportFile()
+    {
+        if (fileContent == null || string.IsNullOrWhiteSpace(projectName)) return;
+
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var user = AuthService.GetCurrentUser();
+            var result = await ImportService.ImportAdvancedAsync(
+                fileContent, fileName, fileContentType,
+                projectName, user?.Name,
+                delimiter, headerRow, skipLastRow, autoDetectType);
+
+            if (result.Succeeded)
+            {
+                Snackbar.Add($"Project '{projectName}' imported!", Severity.Success);
+                recentImports.Insert(0, new RecentImport { Name = projectName, Status = "Success" });
+                if (recentImports.Count > 5) recentImports.RemoveAt(5);
+                ClearFile();
+                projectName = "";
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Import failed", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetFileIcon()
+    {
+        if (string.IsNullOrEmpty(fileName)) return Icons.Material.Filled.InsertDriveFile;
+        var ext = Path.GetExtension(fileName).ToLower();
+        return ext switch
+        {
+            ".csv" => Icons.Material.Filled.TableChart,
+            ".xlsx" or ".xls" => Icons.Material.Filled.GridOn,
+            ".txt" => Icons.Material.Filled.Description,
+            _ => Icons.Material.Filled.InsertDriveFile
+        };
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1048576) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / 1048576.0:F1} MB";
+    }
+
+    private string GetCellValue(Dictionary<string, object?> row, string col)
+    {
+        return row.TryGetValue(col, out var val) && val != null ? val.ToString() ?? "" : "";
+    }
+
+    private class RecentImport
+    {
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "";
+    }
+    private async Task OnBeforeNavigation(LocationChangingContext context)
+    {
+        if (isLoading)
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    // این متد برای InputFile استاندارد استفاده می‌شود
+    private async Task OnInputFileChangeStandard(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        await ProcessFile(file);
+    }
+}

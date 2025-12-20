@@ -1,0 +1,195 @@
+@inherits LayoutComponentBase
+@using WebUI.Services
+@inject AuthService AuthService
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+
+@* <MudThemeProvider @bind-IsDarkMode="_isDarkMode" /> *@
+<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_customTheme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+@{
+    var user = AuthService.GetCurrentUser();
+    var isAuthenticated = user?.IsAuthenticated ?? false;
+    var isLoginPage = NavManager.Uri.Contains("/login") || NavManager.Uri.EndsWith("/");
+}
+
+@if (!isAuthenticated || isLoginPage)
+{
+    @Body
+}
+else
+{
+    <MudLayout>
+        <!-- Top AppBar -->
+        <MudAppBar Elevation="1" Class="header-color" Fixed="true">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+
+            <img src="./Images/logo-RASF1.png" width="30" class="mr-2" />
+            <MudText Typo="Typo.h6" Class="fw-bold" id="h6-rasf">RASF ICP Processing</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@(_isDarkMode? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit"
+                           OnClick="ToggleDarkMode" />
+            <MudMenu Icon="@Icons.Material.Filled.Person" Color="Color.Inherit">
+                <MudMenuItem Icon="@Icons.Material.Filled.Person">@(user?.Name ?? "User")</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Badge">@(user?.Position ?? "User")</MudMenuItem>
+                <MudDivider />
+                @* <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="@(() => NavManager.NavigateTo("/settings"))">Settings</MudMenuItem> *@
+                @if (user?.Position?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false)
+                {
+                    <MudDivider Class="my-2" />
+                    <MudNavLink Href="/manage-users" Icon="@Icons.Material.Filled.ManageAccounts" Match="NavLinkMatch.All">
+                        User Managment
+                    </MudNavLink>
+                }
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">Sign Out</MudMenuItem>
+            </MudMenu>
+        </MudAppBar>
+
+        <!-- Sidebar Drawer -->
+        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="DrawerVariant.Mini" OpenMiniOnHover="true">
+            <MudNavMenu>
+                <MudNavLink Href="/dashboard" Icon="@Icons.Material.Filled.Dashboard" Match="NavLinkMatch.All">
+                    Dashboard
+                </MudNavLink>
+                <MudNavLink Href="/import" Icon="@Icons.Material.Filled.CloudUpload" Match="NavLinkMatch.All">
+                    Import Data
+                </MudNavLink>
+                <MudNavLink Href="/projects" Icon="@Icons.Material.Filled.Folder" Match="NavLinkMatch.All">
+                    Projects
+                </MudNavLink>
+
+                <MudDivider Class="my-2" />
+
+                <MudNavGroup Title="Data" Icon="@Icons.Material.Filled.TableChart" Expanded="false">
+                    <MudNavLink Href="/pivot" Icon="@Icons.Material.Filled.GridOn" Match="NavLinkMatch.All">
+                        Pivot Table
+                    </MudNavLink>
+                    <MudNavLink Href="/elements" Icon="@Icons.Material.Filled.Category" Match="NavLinkMatch.All">
+                        Elements
+                    </MudNavLink>
+                </MudNavGroup>
+
+                <MudNavGroup Title="Process" Icon="@Icons.Material.Filled.Engineering" Expanded="false">
+                    <MudNavLink Href="/process/weight" Icon="@Icons.Material.Filled.Scale" Match="NavLinkMatch.All">
+                        Weight Check
+                    </MudNavLink>
+                    <MudNavLink Href="/process/volume" Icon="@Icons.Material.Filled.LocalDrink" Match="NavLinkMatch.All">
+                        Volume Check
+                    </MudNavLink>
+                    <MudNavLink Href="/process/df" Icon="@Icons.Material.Filled.Functions" Match="NavLinkMatch.All">
+                        DF Check
+                    </MudNavLink>
+                    <MudNavLink Href="/process/empty" Icon="@Icons.Material.Filled.RemoveCircleOutline" Match="NavLinkMatch.All">
+                        Empty Check
+                    </MudNavLink>
+                    <MudNavLink Href="/process/crm" Icon="@Icons.Material.Filled.Verified" Match="NavLinkMatch.All">
+                        CRM
+                    </MudNavLink>
+                    <MudNavLink Href="/process/drift" Icon="@Icons.Material.Filled.Timeline" Match="NavLinkMatch.All">
+                        Drift Correction
+                    </MudNavLink>
+                    <MudNavLink Href="/process/result" Icon="@Icons.Material.Filled.CheckCircle" Match="NavLinkMatch.All">
+                        Result
+                    </MudNavLink>
+                </MudNavGroup>
+
+                <MudNavLink Href="/crm" Icon="@Icons.Material.Filled.VerifiedUser" Match="NavLinkMatch.All">
+                    CRM Database
+                </MudNavLink>
+                <MudNavLink Href="/report" Icon="@Icons.Material.Filled.Assessment" Match="NavLinkMatch.All">
+                    Reports
+                </MudNavLink>
+
+                @* @if (user?.Position?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false)
+                {
+                    <MudDivider Class="my-2" />
+                    <MudNavLink Href="/manage-users" Icon="@Icons.Material.Filled.ManageAccounts" Match="NavLinkMatch.All">
+                        User Managment
+                    </MudNavLink>
+                } *@
+
+                <MudNavLink Href="/changelog" Icon="@Icons.Material.Filled.History" Match="NavLinkMatch.All">
+                    Change Log
+                </MudNavLink>
+            </MudNavMenu>
+        </MudDrawer>
+
+        <!-- Main Content -->
+        @* <MudMainContent Class="pt-16" style="height:100vh;  background-color: var(--bg-surface);"
+        onclick="toggletheme">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4" >
+                @Body
+            </MudContainer>
+        </MudMainContent> *@
+
+        <MudMainContent Class="pt-16">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
+@* <style>
+    .mud-nav-link.active .mud-icon-root {
+        color: var(--mud-palette-primary) !important;
+    }
+</style> *@
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        NavManager.NavigateTo("/login");
+    }
+
+
+    private MudTheme _customTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#1c6397",
+            AppbarBackground = "#1565C0",
+            DrawerBackground = "#FFFFFF",
+            Background = "#f1f2f2",
+            Surface = "#FFFFFF",
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#90CAF9",
+            Secondary = "#FF80AB",
+            AppbarBackground = "#1E1E1E",
+            DrawerBackground = "#252b3b",
+            Background = "#1d222f",
+            Surface = "#252b3b",
+        }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                let idleTimeout;
+                function resetTimer() {
+                    clearTimeout(idleTimeout);
+                    idleTimeout = setTimeout(() => location.href = '/logout', 600000);
+                }
+                ['mousemove','keydown','scroll','click','touchstart'].forEach(evt =>
+                    document.addEventListener(evt, resetTimer, { passive: true })
+                );
+                resetTimer();
+            ");
+        }
+    }
+}

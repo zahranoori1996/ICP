@@ -1,0 +1,281 @@
+@page "/report"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject ReportService ReportService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>ICP - Reports</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isGenerating" />
+@* Loading Overlay *@
+@if (_isGenerating)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+
+        </MudPaper>
+    </div>
+}
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="d-flex justify-space-between align-center">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">Reports</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Generate and export analysis reports
+                </MudText>
+            </div>
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @* Report Options *@
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="me-2" />
+                        Report Options
+                    </MudText>
+
+                    <MudSelect T="string"
+                               Label="Report Format"
+                               @bind-Value="_selectedFormat"
+                               Variant="Variant.Outlined"
+                               Class="mb-4">
+                        <MudSelectItem Value="@("excel")">Excel (.xlsx)</MudSelectItem>
+                        <MudSelectItem Value="@("csv")">CSV (.csv)</MudSelectItem>
+                        <MudSelectItem Value="@("json")">JSON (.json)</MudSelectItem>
+                        <MudSelectItem Value="@("pdf")">PDF (.pdf)</MudSelectItem>
+                    </MudSelect>
+
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Include Sections</MudText>
+
+                    <MudCheckBox @bind-Value="_includeSummary"
+                                 Label="Summary Statistics"
+                                 Color="Color.Primary"
+                                 Class="mb-1" />
+
+                    <MudCheckBox @bind-Value="_includeRawData"
+                                 Label="Raw Data"
+                                 Color="Color.Primary"
+                                 Class="mb-1" />
+
+                    <MudCheckBox @bind-Value="_includeProcessedData"
+                                 Label="Processed Data"
+                                 Color="Color.Primary"
+                                 Class="mb-1" />
+
+                    <MudCheckBox @bind-Value="_includeCrmAnalysis"
+                                 Label="CRM Analysis"
+                                 Color="Color.Primary"
+                                 Class="mb-1" />
+
+                    <MudCheckBox @bind-Value="_includeDriftAnalysis"
+                                 Label="Drift Analysis"
+                                 Color="Color.Primary"
+                                 Class="mb-1" />
+
+                    <MudCheckBox @bind-Value="_includeCharts"
+                                 Label="Charts & Visualizations"
+                                 Color="Color.Primary"
+                                 Class="mb-4" />
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Filter Elements</MudText>
+                    <MudSelect T="string"
+                               Label="Elements"
+                               MultiSelection="true"
+                               @bind-SelectedValues="_selectedElements"
+                               Variant="Variant.Outlined"
+                               Class="mb-4">
+                        @foreach (var el in _allElements)
+                        {
+                            <MudSelectItem Value="@el">@el</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.FileDownload"
+                               OnClick="GenerateReport"
+                               Disabled="_isGenerating"
+                               Class="mb-2">
+                        @if (_isGenerating)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                            <span>Generating...</span>
+                        }
+                        else
+                        {
+                            <span>Generate Report</span>
+                        }
+                    </MudButton>
+                </MudPaper>
+            </MudItem>
+
+            @* Report Templates *@
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="me-2" />
+                        Quick Report Templates
+                    </MudText>
+
+                    <MudGrid>
+                        @* Full Report *@
+                        <MudItem xs="12" md="6">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <div class="d-flex align-center mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Summarize" Color="Color.Primary" Class="me-2" />
+                                        <MudText Typo="Typo.h6">Full Analysis Report</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Complete report with all data, statistics, CRM analysis, drift corrections, and charts.
+                                    </MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Primary"
+                                               OnClick="@(() => GenerateQuickReport("full"))">
+                                        Generate
+                                    </MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+
+                        @* CRM Report *@
+                        <MudItem xs="12" md="6">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <div class="d-flex align-center mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Science" Color="Color.Secondary" Class="me-2" />
+                                        <MudText Typo="Typo.h6">CRM Validation Report</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Report focusing on CRM samples, pass/fail rates, and calibration results.
+                                    </MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Secondary"
+                                               OnClick="@(() => GenerateQuickReport("crm"))">
+                                        Generate
+                                    </MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+
+                        @* Drift Report *@
+                        <MudItem xs="12" md="6">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <div class="d-flex align-center mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Warning" Class="me-2" />
+                                        <MudText Typo="Typo.h6">Drift Analysis Report</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Detailed drift analysis with segment detection and correction factors.
+                                    </MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Warning"
+                                               OnClick="@(() => GenerateQuickReport("drift"))">
+                                        Generate
+                                    </MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+
+                        @* Data Export *@
+                        <MudItem xs="12" md="6">
+                            <MudCard Elevation="1">
+                                <MudCardContent>
+                                    <div class="d-flex align-center mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.TableChart" Color="Color.Info" Class="me-2" />
+                                        <MudText Typo="Typo.h6">Data Export</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Export processed data in various formats without additional analysis.
+                                    </MudText>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Info"
+                                               OnClick="@(() => GenerateQuickReport("data"))">
+                                        Generate
+                                    </MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                @* Recent Reports *@
+                <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.History" Class="me-2" />
+                        Recent Reports
+                    </MudText>
+
+                    @if (_recentReports.Any())
+                    {
+                        <MudList T="ReportHistoryItem" Dense="true">
+                            @foreach (var report in _recentReports)
+                            {
+                                <MudListItem Icon="@GetFormatIcon(report.Format)">
+                                    <div class="d-flex justify-space-between align-center w-100">
+                                        <div>
+                                            <MudText>@report.FileName</MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                @report.GeneratedAt.ToString("yyyy-MM-dd HH:mm")
+                                            </MudText>
+                                        </div>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Download"
+                                                       Size="Size.Small"
+                                                       Color="Color.Primary"
+                                                       OnClick="@(() => DownloadReport(report))" />
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            No recent reports available.
+                        </MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+</style>
+

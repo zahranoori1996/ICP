@@ -1,0 +1,364 @@
+﻿@page "/process/result"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject PivotService PivotService
+@inject ReportService ReportService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<PageTitle>ICP - Final Results</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
+@* Loading Overlay *@
+@if (_isLoading)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+
+        </MudPaper>
+    </div>
+}
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+
+        <div class="justify-space-between align-center">
+            <div class="mb-4">
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">Final Results</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    @if (!string.IsNullOrEmpty(_projectName))
+                    {
+
+                        <span>Project: <strong>@_projectName</strong> | </span>
+                    }
+                    View and export processed data with all corrections applied
+                </MudText>
+            </div>
+            <ProcessNav CurrentStep="result" />
+        </div>
+
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @* Controls Panel *@
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-0">
+
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Class="me-2" />
+                        Data Filters
+                    </MudText>
+
+                    <MudCheckBox @bind-Value="_showOnlyRm"
+                                 Label="Show Only RM Samples"
+                                 Color="Color.Primary"
+                                 Class="mb-0 p-1" />
+
+
+                    <MudCheckBox @bind-Value="_showBadSamples"
+                                 Label="Highlight Bad Samples"
+                                 Color="Color.Warning"
+                                 Class="mb-0 p-1" />
+
+                    <MudCheckBox @bind-Value="_showDiff"
+                                 Label="Show Diff Columns"
+                                 Color="Color.Info"
+                                 Class="mb-0 p-0" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="LoadData"
+                               Disabled="_isLoading"
+                               Class="mb-0">
+                        Refresh Data
+                    </MudButton>
+
+
+                    <MudDivider Class="my-2" />
+
+                    <MudText Typo="Typo.h6" Class="mb-0">
+                        <MudIcon Icon="@Icons.Material.Filled.Download" Class="me-2" />
+                        Export
+
+                    </MudText>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Success"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.TableChart"
+                               OnClick="@(() => ExportData("excel"))"
+                               Disabled="_isLoading"
+                               Class="mb-2">
+                        Export Excel
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Info"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Description"
+                               OnClick="@(() => ExportData("csv"))"
+                               Disabled="_isLoading"
+                               Class="mb-2">
+                        Export CSV
+
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.DataObject"
+                               OnClick="@(() => ExportData("json"))"
+                               Disabled="_isLoading"
+                               Class="mb-0">
+                        Export JSON
+                    </MudButton>
+                </MudPaper>
+
+                @* Summary Statistics *@
+
+                <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-2">Summary</MudText>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-space-between">
+
+                            <span>Total Samples:</span>
+                            <MudChip T="string" Size="Size.Small">@_totalSamples</MudChip>
+                        </div>
+                        <div class="d-flex justify-space-between">
+
+                            <span>RM Samples:</span>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">@_rmSamples</MudChip>
+                        </div>
+
+                        <div class="d-flex justify-space-between">
+                            <span>Bad Samples:</span>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">@_badSamples</MudChip>
+                        </div>
+
+                        <div class="d-flex justify-space-between">
+                            <span>Pass Rate:</span>
+                            <MudChip T="string" Size="Size.Small" Color="@(_passRate >= 90 ?
+                                                                                                  Color.Success : Color.Warning)">
+                            @_passRate.ToString("F1")%
+                        </MudChip>
+                    </div>
+
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            @* Results Table *@
+            <MudItem xs="12" md="9">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+
+                @if (_isLoading)
+                    {
+                        <div class="d-flex justify-center align-center" style="min-height: 400px;">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+
+                        </div>
+                    }
+                    else if (_rows.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info">
+
+                            No data available. Make sure all processing steps are complete.
+                        </MudAlert>
+                    }
+                    else
+
+                    {
+                        <MudTable Items="@_pagedRows"
+                                  Hover="true"
+                                  Dense="true"
+                                  FixedHeader="true"
+                                  Height="510px"
+                                  Breakpoint="Breakpoint.None"
+                                  HorizontalScrollbar="true"
+                                  SortLabel="Sort By"
+                                  RowsPerPage="@_pageSize"
+                                  Class="mb-4 table-weight">
+                            <HeaderContent>
+
+                                <MudTh><MudTableSortLabel SortBy="new Func<ResultRow, object>(x => x.RowNumber)">Row</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortBy="new Func<ResultRow, object>(x => x.SolutionLabel)">Solution Label</MudTableSortLabel></MudTh>
+                                <MudTh><MudTableSortLabel SortBy="new Func<ResultRow, object>(x => x.SampleType)">Type</MudTableSortLabel></MudTh>
+
+                                @foreach (var col in _elementColumns)
+                                {
+                                    <MudTh>@col</MudTh>
+
+                                    @if (_showDiff)
+                                    {
+
+                                        <MudTh>@(col + " Diff")</MudTh>
+                                    }
+                                }
+
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.RowNumber</MudTd>
+
+                                <MudTd >
+                                    <MudText Class="fw-medium">@context.SolutionLabel</MudText>
+
+                                </MudTd>
+                                <MudTd >
+                                    @if (context.SampleType == "RM")
+
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">RM</MudChip>
+                                    }
+
+                                    else if (context.SampleType == "STD")
+                                    {
+
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Secondary">STD</MudChip>
+                                    }
+                                    else
+
+                                    {
+                                        <MudChip T="string" Size="Size.Small">@context.SampleType</MudChip>
+                                    }
+
+                                </MudTd>
+                                @foreach (var col in _elementColumns)
+                                {
+
+                                    var val = context.Values.GetValueOrDefault(col, 0);
+                                    <MudTd >@val.ToString("F4")</MudTd>
+                                    @if (_showDiff)
+                                    {
+
+                                        var diff = context.Diffs.GetValueOrDefault(col, 0);
+                                        var diffColor = Math.Abs(diff) <= 10 ? "green" : "red";
+                                        <MudTd >
+                                            @diff.ToString("F2")%
+                                        </MudTd>
+
+                                    }
+                                }
+                                <MudTd >
+
+                                    @if (context.IsBad)
+                                    {
+
+                                        <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" />
+                                    }
+                                    else if (context.SampleType == "RM")
+
+                                    {
+                                        @if (context.PassedCount == context.TotalElements)
+
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                                        }
+
+                                        else
+                                        {
+
+                                            <MudText Typo="Typo.caption">@context.PassedCount/@context.TotalElements</MudText>
+                                        }
+                                    }
+
+                                </MudTd>
+                            </RowTemplate>
+                            <PagerContent>
+
+                                <div class="d-flex justify-center align-center pa-4 gap-4 change-flex-item">
+                                    <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged"
+                                               Label="Per Page"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Style="width: 100px;">
+                                        <MudSelectItem Value="50">50</MudSelectItem>
+                                        <MudSelectItem Value="100">100</MudSelectItem>
+                                        <MudSelectItem Value="200">200</MudSelectItem>
+                                        <MudSelectItem Value="500">500</MudSelectItem>
+                                    </MudSelect>
+
+                                    <MudPagination Count="@_totalPages"
+                                                   Selected="_currentPage"
+                                                   SelectedChanged="OnPageChanged"
+                                                   ShowFirstButton="true"
+                                                   ShowLastButton="true"
+                                                   BoundaryCount="1"
+                                                   MiddleCount="3" />
+
+                                    @if (_totalVisibleRows > 0)
+                                    {
+                                        <MudText Typo="Typo.body2">
+                                            Total: @_totalVisibleRows rows |
+                                            Showing: @((_currentPage - 1) * _pageSize + 1) - @Math.Min(_currentPage * _pageSize, _totalVisibleRows)
+                                        </MudText>
+                                    }
+                                </div>
+                            </PagerContent>
+                        </MudTable>
+                    }
+
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell,
+    .mud-table-dense * .mud-table-row .mud-table-cell div {
+        /* جلوگیری از شکستن متن و تضمین اینکه عرض بر اساس محتوا باشد */
+        white-space: nowrap;
+        padding: 10px;
+    }
+
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        /* حذف ارتفاع ثابت (مانند 400px) */
+        /* height: 400px; */
+        /* تنظیم خودکار عرض جدول بر اساس محتوای ستون‌ها */
+        table-layout: auto !important;
+        overflow: scroll;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 4px 7px 4px 8px;
+        padding-inline-start: 8px;
+        padding-inline-end: 12px;
+        white-space: nowrap;
+    }
+
+    .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        /* height: 620px;
+        overflow: scroll; */
+    }
+</style>

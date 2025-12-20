@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "Isatis.ICP - SaveLoad Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": { "major": 1, "minor": 0, "patch": 0 }
+  },
+  "item": [
+    {
+      "name": "Save Project",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"ProjectName\": \"TestProject1\",\n  \"Owner\": \"dev\",\n  \"RawRows\": [\n    { \"ColumnData\": \"{\\\"Fe\\\": 12.3, \\\"Cu\\\": 0.5}\", \"SampleId\": \"S1\" },\n    { \"ColumnData\": \"{\\\"Fe\\\": 11.9, \\\"Cu\\\": 0.6}\", \"SampleId\": \"S2\" }\n  ],\n  \"StateJson\": \"{\\\"ui\\\":{\\\"selectedElements\\\":[\\\"Fe\\\",\\\"Cu\\\"]}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{host}}/api/projects/{{projectId}}/save",
+          "host": ["{{host}}"],
+          "path": ["api","projects","{{projectId}}","save"]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "try {",
+              "  const res = pm.response.json();",
+              "  pm.test('Response code is 200', () => pm.expect(pm.response.code).to.eql(200));",
+              "  pm.test('Save succeeded', () => pm.expect(res.succeeded).to.be.true);",
+              "  if (res.data && res.data.projectId) {",
+              "    pm.environment.set('projectId', res.data.projectId);",
+              "    console.log('Saved projectId ->', res.data.projectId);",
+              "  } else {",
+              "    console.warn('No projectId returned');",
+              "  }",
+              "} catch (e) {",
+              "  pm.test('Response parseable JSON', () => { throw e });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Load Project",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{host}}/api/projects/{{projectId}}/load",
+          "host": ["{{host}}"],
+          "path": ["api","projects","{{projectId}}","load"]
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "try {",
+              "  const res = pm.response.json();",
+              "  pm.test('Response code is 200 or 404 handled', () => pm.expect([200,404]).to.include(pm.response.code));",
+              "  pm.test('Load succeeded', () => {",
+              "    if (pm.response.code === 200) {",
+              "      pm.expect(res.succeeded).to.be.true;",
+              "      pm.expect(res.data).to.have.property('projectId');",
+              "      pm.expect(res.data.projectId).to.eql(pm.environment.get('projectId'))",
+              "    } else {",
+              "      pm.expect(res.succeeded).to.be.false;",
+              "    }",
+              "  });",
+              "} catch (e) {",
+              "  pm.test('Response parseable JSON', () => { throw e });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,233 @@
+@page "/elements"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject PivotService PivotService
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - Elements</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="d-flex justify-space-between align-center flex-wrap">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">Elements Configuration</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    Manage element settings, units, and oxide factors
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="SaveChanges"
+                       Class="mt-3"
+                       Disabled="_isSaving">
+                Save Changes
+            </MudButton>
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @* Element List *@
+            <MudItem xs="12" md="8" Class="available-elements">
+              
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Science" Class="me-2" />
+                        Available Elements
+                    </MudText>
+
+                    @if (_isLoading)
+                    {
+                        <div class="d-flex justify-center align-center" style="min-height: 200px;">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTable T="ElementConfig"
+                                  Items="@_elements"
+                                  Hover="true"
+                                  Dense="true"
+                                  FixedHeader="true"
+                                  Height="490px"
+                                  Breakpoint="Breakpoint.None"
+                                  HorizontalScrollbar="true"
+                                  @bind-SelectedItem="_selectedElement">
+                            <HeaderContent>
+                                <MudTh>Element</MudTh>
+                                <MudTh>Symbol</MudTh>
+                                <MudTh>Unit</MudTh>
+                                <MudTh Style="min-width: 120px;">Oxide Factor</MudTh>
+                                <MudTh>Min Range</MudTh>
+                                <MudTh>Max Range</MudTh>
+                                <MudTh>Active</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="element">
+                                <MudTd DataLabel="Element">@element.Name</MudTd>
+                                <MudTd DataLabel="Symbol">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">@element.Symbol</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Unit">@element.Unit</MudTd>
+                                <MudTd DataLabel="Oxide Factor">@element.OxideFactor.ToString("F4")</MudTd>
+                                <MudTd DataLabel="Min Range">@element.MinRange.ToString("F2")</MudTd>
+                                <MudTd DataLabel="Max Range">@element.MaxRange.ToString("F2")</MudTd>
+                                <MudTd DataLabel="Active">
+                                    <MudSwitch T="bool" @bind-Value="element.IsActive" Color="Color.Primary" />
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+                @* Common Oxide Factors Reference *@
+                <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                    <MudExpansionPanels>
+                        <MudExpansionPanel Text="Common Oxide Factors Reference">
+                            <MudGrid>
+                                @foreach (var oxide in _commonOxides)
+                                {
+                                    <MudItem xs="6" sm="4" md="2">
+                                        <MudPaper Elevation="0" Class="pa-2 text-center" Style="background: var(--mud-palette-background-grey);">
+                                            <MudText Typo="Typo.body2" Class="fw-medium">@oxide.Oxide</MudText>
+                                            <MudText Typo="Typo.caption">@oxide.Factor.ToString("F4")</MudText>
+                                        </MudPaper>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                </MudPaper>
+            </MudItem>
+
+
+            @* Element Details / Editor *@
+            <MudItem xs="12" md="4" Class="edit-elements">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all card-element">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="me-2" />
+                        Edit Element
+                    </MudText>
+
+                    @if (_selectedElement == null)
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            Select an element to edit its properties.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTextField @bind-Value="_selectedElement.Name"
+                                      Label="Element Name"
+                                      Variant="Variant.Outlined"
+                                      Class="mb-3" />
+
+                        <MudTextField @bind-Value="_selectedElement.Symbol"
+                                      Label="Symbol"
+                                      Variant="Variant.Outlined"
+                                      Class="mb-3 " />
+
+                        <MudSelect T="string"
+                                   Label="Unit"
+                                   @bind-Value="_selectedElement.Unit"
+                                   Variant="Variant.Outlined"
+                                   Class="mb-3">
+                            <MudSelectItem Value="@("%")">% (Percent)</MudSelectItem>
+                            <MudSelectItem Value="@("ppm")">ppm</MudSelectItem>
+                            <MudSelectItem Value="@("ppb")">ppb</MudSelectItem>
+                            <MudSelectItem Value="@("mg/L")">mg/L</MudSelectItem>
+                            <MudSelectItem Value="@("g/L")">g/L</MudSelectItem>
+                        </MudSelect>
+
+                        <MudNumericField @bind-Value="_selectedElement.OxideFactor"
+                                         Label="Oxide Factor"
+                                         Variant="Variant.Outlined"
+                                         Step="0.0001M"
+                                         Format="F4"
+                                         Class="mb-3" />
+
+                        <MudNumericField @bind-Value="_selectedElement.MinRange"
+                                         Label="Min Detection Range"
+                                         Variant="Variant.Outlined"
+                                         Step="0.01M"
+                                         Class="mb-3" />
+
+                        <MudNumericField @bind-Value="_selectedElement.MaxRange"
+                                         Label="Max Detection Range"
+                                         Variant="Variant.Outlined"
+                                         Step="1M"
+                                         Class="mb-3" />
+
+                        <MudNumericField @bind-Value="_selectedElement.DiffThreshold"
+                                         Label="Diff Threshold (%)"
+                                         Variant="Variant.Outlined"
+                                         Step="1M"
+                                         Class="mb-3" />
+
+                        <MudSwitch @bind-Value="_selectedElement.IsActive"
+                                   Label="Active"
+                                   Color="Color.Primary"
+                                   Class="mb-3" />
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="ResetElement">
+                            Reset to Default
+                        </MudButton>
+                    }
+                </MudPaper>
+
+
+                @* Oxide Factor Calculator *@
+                <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all card-element">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Calculate" Class="me-2" />
+                        Oxide Factor Calculator
+                    </MudText>
+
+                    <MudTextField @bind-Value="_calcElement"
+                                  Label="Element Symbol"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="e.g., Si, Al, Fe"
+                                  Class="mb-3" />
+
+                    <MudTextField @bind-Value="_calcOxide"
+                                  Label="Oxide Formula"
+                                  Variant="Variant.Outlined"
+                                  Placeholder="e.g., SiO2, Al2O3, Fe2O3"
+                                  Class="mb-3" />
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Calculate"
+                               OnClick="CalculateOxideFactor"
+                               Class="mb-3">
+                        Calculate Factor
+                    </MudButton>
+
+                    @if (_calculatedFactor.HasValue)
+                    {
+                        <MudAlert Severity="Severity.Success">
+                            Oxide Factor: <strong>@_calculatedFactor.Value.ToString("F6")</strong>
+                        </MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+    }
+</MudContainer>
+<style>
+    .mud-input > input.mud-input-root-outlined, div.mud-input-slot.mud-input-root-outlined {
+        padding: 12px 14px;
+    }
+</style>

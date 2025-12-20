@@ -1,0 +1,165 @@
+﻿/* ===================================
+   ICP - Import Page Styles
+   =================================== */
+
+.upload-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: #f8fafc;
+    cursor: pointer;
+}
+
+    .upload-zone:hover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+    }
+
+    .upload-zone.drag-over {
+        border-color: #3b82f6;
+        background: #dbeafe;
+        transform: scale(1.02);
+    }
+
+    .upload-zone.has-file {
+        border-style: solid;
+        border-color: #10b981;
+        background: #ecfdf5;
+    }
+
+.upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    width: 100%;
+}
+
+.selected-file {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem;
+}
+
+    .selected-file.file-info {
+        flex: 1;
+        text-align: left;
+    }
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.fw-bold {
+    font-weight: 700 !important;
+}
+
+.w-100 {
+    width: 100%;
+}
+
+/* Preview Table */
+.mud-simple-table {
+    font-size: 0.85rem;
+}
+
+    .mud-simple-table th {
+        /*        background: #f1f5f9 !important;*/
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .mud-simple-table td {
+        white-space: nowrap;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+/* Responsive */
+@media (max-width: 960px) {
+    .upload-zone {
+        padding: 2rem 1rem;
+    }
+
+
+
+}
+
+@media (max-width: 768px) {
+    .drop-file {
+        padding: 20px;
+        text-align: center;
+    }
+
+
+
+}
+
+@media (max-width: 600px) {
+    .back-to-dashboard {
+        font-size: .5rem;
+    }
+
+        .back-to-dashboard .mud-button-label {
+            gap: 0;
+        }
+
+            .back-to-dashboard .mud-button-label .mud-button-icon-start {
+                margin-left: 0;
+                margin-right: 0;
+                margin-inline-start: 0;
+                margin-inline-end: 0;
+            }
+
+    .h4-import-data {
+        font-size: 1.4rem;
+    }
+
+    .p-import-data {
+        font-size: .8rem;
+    }
+
+
+    .btn-preview{
+        display: none;
+    }
+    .button-import-data .mud-button-label {
+        gap: 0 !important;
+    }
+
+    .hidden-mobile{
+        display:none;
+    }
+}
+
+@media (max-width: 380px) {
+    .back-to-dashboard {
+        font-size: .5rem;
+    }
+        .back-to-dashboard .mud-button-label{
+            gap:0;
+        }
+
+        .back-to-dashboard .mud-button-label .mud-button-icon-start {
+            margin-left: 0;
+            margin-right: 0;
+            margin-inline-start: 0;
+            margin-inline-end: 0;
+        }
+
+    .h4-import-data {
+        font-size: 1.2rem;
+    }
+
+    .p-import-data {
+        font-size: .7rem;
+    }
+
+        .button-import-data .mud-button-label {
+            gap: 0 !important;
+        }
+}

@@ -1,0 +1,330 @@
+﻿@page "/process/df"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject CorrectionService CorrectionService
+@inject PivotService PivotService
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - DF Check</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
+
+@* Loading Overlay *@
+@if (_isLoading)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+        </MudPaper>
+    </div>
+}
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="justify-space-between align-center">
+            <div class="mb-4">
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">Dilution Factor Check</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    @if (!string.IsNullOrEmpty(_projectName))
+                    {
+                        <span>Project: <strong>@_projectName</strong> | </span>
+                    }
+                    Detect and correct samples with abnormal dilution factors
+                </MudText>
+            </div>
+            <ProcessNav CurrentStep="df" />
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @* Settings Panel *@
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Science" Class="me-2" />
+                        DF Settings
+                    </MudText>
+
+                    <MudNumericField @bind-Value="_expectedDf"
+                                     Label="Expected DF"
+                                     Variant="Variant.Outlined"
+                                     Step="0.1M"
+                                     Class="mb-3" />
+
+                    <MudNumericField @bind-Value="_tolerancePercent"
+                                     Label="Tolerance %"
+                                     Variant="Variant.Outlined"
+                                     Step="1M"
+                                     Min="0"
+                                     Max="50"
+                                     Class="mb-3" />
+
+                    <MudCheckBox @bind-Value="_autoCorrect"
+                                 Label="Auto-correct to expected DF"
+                                 Color="Color.Primary"
+                                 Class="mb-4" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="DetectBadDf"
+                               Disabled="_isLoading"
+                               Class="mb-2">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                            <span>Detecting...</span>
+                        }
+                        else
+                        {
+                            <span>Detect Bad DF</span>
+                        }
+                    </MudButton>
+
+                    @if (_badDfSamples.Any())
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Warning"
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                   OnClick="ApplyCorrection"
+                                   Disabled="_isLoading || !_badDfSamples.Any()">
+                            Apply Correction
+                        </MudButton>
+                    }
+                </MudPaper>
+
+                @* Summary Card *@
+                <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                    <MudText Typo="Typo.h6" Class="mb-2">Summary</MudText>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-space-between">
+                            <span>Total Samples:</span>
+                            <MudChip T="string" Size="Size.Small">@_totalSamples</MudChip>
+                        </div>
+                        <div class="d-flex justify-space-between">
+                            <span>Bad DF:</span>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">@_badDfSamples.Count</MudChip>
+                        </div>
+                        <div class="d-flex justify-space-between">
+                            <span>Expected DF:</span>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info">@_expectedDf</MudChip>
+                        </div>
+                    </div>
+                </MudPaper>
+
+                @* DF Distribution Chart *@
+                @if (_dfDistribution.Any())
+                {
+                    <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                        <MudText Typo="Typo.h6" Class="mb-2">DF Distribution</MudText>
+                        @foreach (var dist in _dfDistribution)
+                        {
+                            <div class="mb-2">
+                                <div class="d-flex justify-space-between mb-1">
+                                    <MudText Typo="Typo.body2">DF = @dist.DfValue</MudText>
+                                    <MudText Typo="Typo.body2">@dist.Count samples</MudText>
+                                </div>
+                                <MudProgressLinear Value="@dist.Percentage" Color="@(dist.DfValue == _expectedDf ? Color.Success : Color.Warning)" />
+                            </div>
+                        }
+                    </MudPaper>
+                }
+            </MudItem>
+
+            @* Results Panel *@
+            <MudItem xs="12" md="9" >
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    @if (!_badDfSamples.Any() && !_isLoading)
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            Click "Detect Bad DF" to find samples with abnormal dilution factors.
+                        </MudAlert>
+                    }
+                    else if (_badDfSamples.Any())
+                    {
+                        <div class="d-flex justify-space-between align-center mb-2">
+                            <MudText Typo="Typo.h6">Samples with Abnormal DF</MudText>
+                            @if (_totalBadCount > 0)
+                            {
+                                <MudText Typo="Typo.caption">
+                                    Showing @((_currentPage - 1) * _pageSize + 1) - @Math.Min(_currentPage * _pageSize, _totalBadCount) of @_totalBadCount
+                                </MudText>
+                            }
+                        </div>
+
+                        @* ✅ تغییر: بایند کردن به لیست صفحه‌بندی شده *@
+                        <MudTable Items="@_pagedBadSamples"
+                                  Hover="true"
+                                  Dense="true"
+                                  Class="box-shadow-0 table-weight"
+                                  FixedHeader="true"
+                                  Height="360px"
+                                  Breakpoint="Breakpoint.None"
+                                  HorizontalScrollbar="true">
+                            <HeaderContent>
+                                <MudTh>Row</MudTh>
+                                <MudTh>Solution Label</MudTh>
+                                <MudTh>Current DF</MudTh>
+                                <MudTh>Expected DF</MudTh>
+                                <MudTh>Deviation</MudTh>
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.RowNumber</MudTd>
+                                <MudTd>
+                                    <MudText Class="fw-medium">@context.SolutionLabel</MudText>
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Error">@context.CurrentDf.ToString("F2")</MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@context.ExpectedDf.ToString("F2")</MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudText Color="Color.Warning">@context.Deviation.ToString("F1")%</MudText>
+                                </MudTd>
+                                <MudTd>
+                                    @if (context.IsCorrected)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success">Corrected</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning">Needs Correction</MudChip>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        @* ✅ اضافه کردن کنترل‌های صفحه‌بندی *@
+                        <MudDivider Class="my-4" />
+                        <div class="d-flex justify-center align-center gap-4 change-flex-item">
+                            <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged"
+                                       Label="Per Page" Variant="Variant.Outlined" Dense="true" Style="width: 100px;">
+                                <MudSelectItem Value="10">10</MudSelectItem>
+                                <MudSelectItem Value="20">20</MudSelectItem>
+                                <MudSelectItem Value="30">30</MudSelectItem>
+                                <MudSelectItem Value="40">40</MudSelectItem>
+                                <MudSelectItem Value="50">50</MudSelectItem>
+                                <MudSelectItem Value="60">60</MudSelectItem>
+                                <MudSelectItem Value="70">70</MudSelectItem>
+                                <MudSelectItem Value="80">80</MudSelectItem>
+                                <MudSelectItem Value="90">90</MudSelectItem>
+                                <MudSelectItem Value="100">100</MudSelectItem>
+                            </MudSelect>
+                            <MudPagination Count="@_totalPages"
+                                           Selected="_currentPage"
+                                           SelectedChanged="OnPageChanged"
+                                           ShowFirstButton="true"
+                                           ShowLastButton="true"
+                                           BoundaryCount="1"
+                                           MiddleCount="3" />
+                        </div>
+                    }
+                </MudPaper>
+
+                @* All Samples Preview *@
+                @if (_allSamples.Any())
+                {
+                    <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all ">
+                        <MudExpansionPanels Class="box-shadow-0" Style="overflow:hidden">
+                            <MudExpansionPanel Text="All Samples Preview"
+                                
+                                Style="overflow:clip;"
+                                @bind-Expanded="_detailsExpanded">
+                                <MudTable Items="@_allSamples.Take(100)"
+                                          Hover="true"
+                                          Class="box-shadow-0 table-weight"
+                                          Dense="true"
+                                          FixedHeader="true"
+                                          Height="175px"
+                                          Breakpoint="Breakpoint.None"
+                                          HorizontalScrollbar="true">
+                                    <HeaderContent>
+                                        <MudTh>Row</MudTh>
+                                        <MudTh>Solution Label</MudTh>
+                                        <MudTh>Dilution Factor</MudTh>
+                                        <MudTh>Status</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.RowNumber</MudTd>
+                                        <MudTd>@context.SolutionLabel</MudTd>
+                                        <MudTd>
+                                            <MudChip T="string" Size="Size.Small"
+                                                     Color="@(Math.Abs(context.CurrentDf - _expectedDf) <= _expectedDf * _tolerancePercent / 100 ? Color.Success : Color.Warning)">
+                                                @context.CurrentDf.ToString("F2")
+                                            </MudChip>
+                                        </MudTd>
+                                        <MudTd>
+                                            @if (Math.Abs(context.CurrentDf - _expectedDf) <= _expectedDf * _tolerancePercent / 100)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
+                                            }
+                                        </MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        height: 200px;
+        overflow: scroll;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 0px 15px 0px 16px;
+        padding-inline-start: 16px;
+        padding-inline-end: 24px;
+    }
+    .mud-table-cell {
+        white-space: nowrap; /* جلوگیری از شکستن متن در سلول‌ها */
+    }
+
+     .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        /* height: 360px;
+        overflow: scroll; */
+    }
+     
+  
+</style>

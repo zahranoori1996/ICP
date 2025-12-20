@@ -1,0 +1,330 @@
+﻿@page "/process/weight"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject CorrectionService CorrectionService
+@inject NavigationManager NavManager
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - Weight Check</PageTitle>
+
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isApplying" />
+
+@if (_isApplying || _isLoading)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+        </MudPaper>
+    </div>
+}
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="justify-space-between align-center">
+            <div class="mb-4">
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">Weight Check</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    @if (!string.IsNullOrEmpty(_projectName))
+                    {
+
+                        <span>
+                            Project: <strong>@_projectName</strong> |
+                        </span>
+                    }
+                    Find and correct samples with abnormal weights
+                </MudText>
+            </div>
+            <ProcessNav CurrentStep="weight" />
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+            <MudLink Href="/projects">Go to Projects</MudLink>
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+
+                    <MudText Typo="Typo.h6"
+                             Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Settings" Class="me-2" />
+                        Settings
+                    </MudText>
+
+                    <MudNumericField @bind-Value="_weightMin"
+                                     Label="Min Weight (g)"
+                                     Variant="Variant.Outlined"
+                                     Step="0.01M"
+                                     Format="F3"
+                                     Class="mb-4" />
+
+
+                    <MudNumericField @bind-Value="_weightMax"
+                                     Label="Max Weight (g)"
+                                     Variant="Variant.Outlined"
+                                     Step="0.01M"
+                                     Format="F3"
+                                     Class="mb-4" />
+
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="FindBadWeights"
+                               Disabled="@(_isLoading ||
+                                                                                             _isApplying)">
+                    @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+
+                        }
+                        Find Bad Weights
+                    </MudButton>
+
+                    @if (_badSamples != null && _badSamples.Any())
+                    {
+                        <div class="d-flex justify-center mt-4 gap-2">
+                            <MudButton Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       Color="Color.Warning"
+                                       OnClick="SelectAll"
+                                       Class="flex-grow-1">
+                                Select All
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       Color="Color.Warning"
+                                       OnClick="ClearSelection"
+                                       Class="flex-grow-1">
+                                Clear Selection
+                            </MudButton>
+                        </div>
+                        <MudDivider Class="my-4" />
+
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Correction</MudText>
+
+                        <MudNumericField @bind-Value="_newWeight"
+                                         Label="New Weight (g)"
+                                         Variant="Variant.Outlined"
+                                         Step="0.01M"
+                                         Format="F3"
+                                         Class="mb-4" />
+
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Secondary"
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.Build"
+                                   OnClick="ApplyCorrection"
+                                   Disabled="@(!_selectedSamples.Any() ||
+                                                                                                         _isApplying)">
+                    @if (_isApplying)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+
+                            }
+                            Apply to Selected (@_selectedSamples.Count)
+                        </MudButton>
+                    }
+
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all ">
+
+                    <div class="d-flex justify-space-between align-center mb-4">
+
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Class="me-2" />
+                            Bad Weight Samples
+
+                        </MudText>
+
+                        @if (_badSamples != null)
+                        {
+                            <MudText Typo="Typo.caption">
+
+                                Showing @((_currentPage - 1) * _pageSize + 1) -
+                                @Math.Min(_currentPage * _pageSize, _totalCount)
+                                of @_totalCount
+
+                            </MudText>
+                        }
+                    </div>
+
+                    @if (_badSamples == null)
+
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            Click "Find Bad Weights" to search.
+                        </MudAlert>
+                    }
+                    else if (!_badSamples.Any())
+                    {
+                        <MudAlert Severity="Severity.Success">
+
+                            All samples are within the acceptable weight range!
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTable Items="@_pagedRows"
+                                  Hover="true"
+                                  Dense="true"
+                                  Breakpoint="Breakpoint.None" HorizontalScrollbar="true"
+                                  MultiSelection="true"
+                                  FixedHeader="true"
+                                  Height="450px"
+                                  @bind-SelectedItems="_selectedSamples"
+                                  SelectOnRowClick="true">
+
+                            <HeaderContent>
+                                <MudTh>Solution Label</MudTh>
+
+                                <MudTh>Actual Weight</MudTh>
+                                <MudTh>Expected</MudTh>
+                                <MudTh>Deviation</MudTh>
+
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+
+                            <RowTemplate>
+                                <MudTd>@context.SolutionLabel</MudTd>
+
+
+                                <MudTd>
+                                    <MudText Color="Color.Error">@context.ActualValue.ToString("F4")</MudText>
+                                </MudTd>
+
+
+                                <MudTd>@context.ExpectedValue.ToString("F4")</MudTd>
+
+                                <MudTd>
+                                    <MudChip T="string"
+                                             Color="@(Math.Abs(context.Deviation) > 20 ?
+                                                                                                                                       Color.Error : Color.Warning)">
+                                @context.Deviation.ToString("F1")%
+                            </MudChip>
+
+                                </MudTd>
+
+                                <MudTd>
+                            @if (context.ActualValue < _weightMin)
+
+                                    {
+                                        <MudText Color="Color.Error">Low</MudText>
+                                    }
+
+                                    else
+                                    {
+
+                                        <MudText Color="Color.Warning">High</MudText>
+                                    }
+                                </MudTd>
+
+                            </RowTemplate>
+                        </MudTable>
+
+                        <div class="d-flex justify-center align-center mt-4 gap-4 change-flex-item">
+
+
+                            <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged"
+                                       Label="Per Page" Variant="Variant.Outlined"
+                                       Dense="true" Style="width: 100px;">
+
+                                <MudSelectItem Value="10">10</MudSelectItem>
+                                <MudSelectItem Value="20">20</MudSelectItem>
+                                <MudSelectItem Value="30">30</MudSelectItem>
+
+                                <MudSelectItem Value="40">40</MudSelectItem>
+                                <MudSelectItem Value="50">50</MudSelectItem>
+                                <MudSelectItem Value="60">60</MudSelectItem>
+
+                                <MudSelectItem Value="70">70</MudSelectItem>
+                                <MudSelectItem Value="80">80</MudSelectItem>
+                                <MudSelectItem Value="90">90</MudSelectItem>
+
+                                <MudSelectItem Value="100">100</MudSelectItem>
+                            </MudSelect>
+
+                            <MudPagination Count="@_totalPages"
+                                           Selected="_currentPage"
+                                           SelectedChanged="OnPageChanged"
+                                           ShowFirstButton="true"
+                                           ShowLastButton="true"
+                                           BoundaryCount="1"
+                                           MiddleCount="3" />
+                        </div>
+                        @* <div class="d-flex justify-end mt-4 gap-2">
+
+                            <MudButton Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       Disabled="@(_isLoading ||
+                                       _isApplying)"
+                               OnClick="SelectAll">
+                        Select All
+
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       Size="Size.Small"
+                                       Disabled="@(_isLoading || _isApplying)"
+                                       OnClick="ClearSelection">
+                                Clear Selection
+
+                            </MudButton>
+                        </div> *@
+                    }
+
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        /* height: 200px; */
+        /* overflow: scroll; */
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 0px 15px 0px 16px;
+        padding-inline-start: 16px;
+        padding-inline-end: 24px;
+    }
+
+    .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        /* height: 450px; */
+        /* overflow: scroll; */
+    }
+</style>
+

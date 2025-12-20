@@ -1,0 +1,11 @@
+﻿@page "/logout"
+@inject AuthService AuthService
+@inject IJSRuntime JS
+
+@{
+    AuthService.LogoutAsync().ConfigureAwait(false);
+}
+
+<script>
+    location.replace("/login");
+</script>

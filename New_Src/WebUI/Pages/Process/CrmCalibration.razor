@@ -1,0 +1,336 @@
+﻿@page "/process/crm"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject OptimizationService OptimizationService
+@inject CrmService CrmService
+@inject PivotService PivotService
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - CRM Calibration</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
+@* Loading Overlay *@
+@if (_isLoading)
+{
+    <div class="loading-overlay">
+        <MudPaper Elevation="4" Class="pa-6 d-flex flex-column align-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+            <MudText Typo="Typo.h6" Class="mt-4">Processing...</MudText>
+
+        </MudPaper>
+    </div>
+}
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="justify-space-between align-center">
+            <div class="mb-4">
+                <MudText Typo="Typo.h4" Class="fw-bold h4-title">CRM Calibration</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary p-description">
+                    @if (!string.IsNullOrEmpty(_projectName))
+                    {
+                        <span>Project: <strong>@_projectName</strong> | </span>
+                    }
+                    Optimize Blank & Scale using Differential Evolution algorithm
+                </MudText>
+            </div>
+            <ProcessNav CurrentStep="crm" />
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @* Settings Panel *@
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="0" Class="pa-4" custom-card-all>
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Tune" Class="me-2" />
+                        Optimization Settings
+                    </MudText>
+
+                    <MudNumericField @bind-Value="_minDiff"
+                                     Label="Min Diff %"
+                                     Variant="Variant.Outlined"
+                                     Step="1M"
+                                     Class="mb-3" />
+
+                    <MudNumericField @bind-Value="_maxDiff"
+                                     Label="Max Diff %"
+                                     Variant="Variant.Outlined"
+                                     Step="1M"
+                                     Class="mb-3" />
+
+                    <MudNumericField @bind-Value="_maxIterations"
+                                     Label="Max Iterations"
+                                     Variant="Variant.Outlined"
+                                     Min="10"
+                                     Max="500"
+                                     Class="mb-3" />
+
+                    <MudNumericField @bind-Value="_populationSize"
+                                     Label="Population Size"
+                                     Variant="Variant.Outlined"
+                                     Min="10"
+                                     Max="200"
+                                     Class="mb-3" />
+
+                    <MudCheckBox @bind-Value="_useMultiModel"
+                                 Label="Use Multi-Model (A/B/C)"
+                                 Color="Color.Primary"
+                                 Class="mb-4" />
+
+                    <MudSelect T="string"
+                               Label="Elements"
+                               MultiSelection="true"
+                               @bind-SelectedValues="_selectedElements"
+                               Variant="Variant.Outlined"
+                               Class="mb-4">
+                        @foreach (var el in _allElements)
+                        {
+                            <MudSelectItem Value="@el">@el</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Info"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Assessment"
+                               OnClick="GetCurrentStats"
+                               Disabled="_isLoading"
+                               Class="mb-2">
+                        Current Stats
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                               OnClick="RunOptimization"
+                               Disabled="_isLoading">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                            <span>Optimizing...</span>
+                        }
+                        else
+                        {
+                            <span>Run Optimization</span>
+                        }
+                    </MudButton>
+                </MudPaper>
+
+                @* Model Summary *@
+                @if (_result?.ModelSummary != null)
+                {
+                    <MudPaper Elevation="0" Class="pa-4 mt-4 custom-card-all">
+                        <MudText Typo="Typo.h6" Class="mb-2">Model Summary</MudText>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-space-between">
+                                <span>Model A (Pass Count):</span>
+                                <MudChip T="string" Size="Size.Small">@_result.ModelSummary.ModelACounts</MudChip>
+                            </div>
+                            <div class="d-flex justify-space-between">
+                                <span>Model B (Huber):</span>
+                                <MudChip T="string" Size="Size.Small">@_result.ModelSummary.ModelBCounts</MudChip>
+                            </div>
+                            <div class="d-flex justify-space-between">
+                                <span>Model C (SSE):</span>
+                                <MudChip T="string" Size="Size.Small">@_result.ModelSummary.ModelCCounts</MudChip>
+                            </div>
+                            <MudDivider />
+                            <MudText Typo="Typo.caption">Most Used: <strong>@_result.ModelSummary.MostUsedModel</strong></MudText>
+                        </div>
+                    </MudPaper>
+                }
+            </MudItem>
+
+            @* Results Panel *@
+            <MudItem xs="12" md="9">
+                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                    @if (_result == null)
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            Click "Current Stats" to see pass/fail statistics, or "Run Optimization" to find optimal Blank & Scale values.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        @* Summary Cards *@
+                        <MudGrid Class="mb-4 ">
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudPaper Elevation="0" Class="pa-3 text-center custom-card-all" Style="background: var(--mud-palette-info-lighten);">
+                                    <MudText Typo="Typo.h4" Color="Color.Dark" Class="count-result-crm">@_result.TotalRmSamples</MudText>
+                                    <MudText Typo="Typo.caption"> RM Samples</MudText>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudPaper Elevation="0" Class="pa-3 text-center custom-card-all" Style="background: var(--mud-palette-warning-lighten);">
+                                    <MudText Typo="Typo.h4" Color="Color.Dark">@_result.PassedBefore</MudText>
+                                    <MudText Typo="Typo.caption">Passed Before</MudText>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudPaper Elevation="0" Class="pa-3 text-center custom-card-all" Style="background: var(--mud-palette-success-lighten);">
+                                    <MudText Typo="Typo.h4" Color="Color.Dark">@_result.PassedAfter</MudText>
+                                    <MudText Typo="Typo.caption">Passed After</MudText>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudPaper Elevation="0" Class="pa-3 text-center custom-card-all" Style="background: var(--mud-palette-secondary-lighten);">
+                                    <MudText Typo="Typo.h4" Color="Color.Dark">
+                                        @(_result.ImprovementPercent > 0 ? "+" : "")@_result.ImprovementPercent.ToString("F1")%
+                                    </MudText>
+                                    <MudText Typo="Typo.caption">Improvement</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        </MudGrid>
+
+                        @* Element Optimizations Table *@
+                        <MudText Typo="Typo.h6" Class="mb-2">Element Optimization Results</MudText>
+                        <MudTable Items="@_result.ElementOptimizations.Values"
+                                  Hover="true"
+                                  Dense="true"
+                                  FixedHeader="true"
+                                  Breakpoint="Breakpoint.None"
+                                  HorizontalScrollbar="true"
+                                  Height="350px">
+                            <HeaderContent>
+                                <MudTh>Element</MudTh>
+                                <MudTh>Model</MudTh>
+                                <MudTh>Blank</MudTh>
+                                <MudTh>Scale</MudTh>
+                                <MudTh>Before</MudTh>
+                                <MudTh>After</MudTh>
+                                <MudTh>Mean Diff Before</MudTh>
+                                <MudTh>Mean Diff After</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd><MudText Class="fw-medium">@context.Element</MudText></MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" 
+                                             Color="@(context.SelectedModel == "A" ? Color.Primary : context.SelectedModel == "B" ? Color.Secondary : Color.Tertiary)">
+                                        @context.SelectedModel
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd>@context.Blank.ToString("F4")</MudTd>
+                                <MudTd>@context.Scale.ToString("F4")</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@context.PassedBefore</MudChip>
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@context.PassedAfter</MudChip>
+                                </MudTd>
+                                <MudTd>@context.MeanDiffBefore.ToString("F2")%</MudTd>
+                                <MudTd>
+                                    <MudText Color="@(Math.Abs(context.MeanDiffAfter) < Math.Abs(context.MeanDiffBefore) ? Color.Success : Color.Default)">
+                                        @context.MeanDiffAfter.ToString("F2")%
+                                    </MudText>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        @* Optimized Data *@
+                        @if (_result.OptimizedData.Any())
+                        {
+                            <MudDivider Class="my-4" />
+                            <MudExpansionPanels>
+                                <MudExpansionPanel Text="Optimized Sample Details" @bind-Expanded="_detailsExpanded">
+                                    <MudTable Items="@_result.OptimizedData.Take(50)"
+                                              Hover="true"
+                                              Dense="true"
+                                              FixedHeader="true"
+                                              Height="165px"
+                                              Breakpoint="Breakpoint.None"
+                                              HorizontalScrollbar="true">
+                                        <HeaderContent>
+                                            <MudTh>Sample</MudTh>
+                                            <MudTh>CRM</MudTh>
+                                            <MudTh>Element</MudTh>
+                                            <MudTh>Original</MudTh>
+                                            <MudTh>Optimized</MudTh>
+                                            <MudTh>CRM Value</MudTh>
+                                            <MudTh>Diff</MudTh>
+                                            <MudTh>Status</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>@context.SolutionLabel</MudTd>
+                                            <MudTd>@context.CrmId</MudTd>
+                                            <MudTd>@context.Element</MudTd>
+                                            <MudTd>@context.OriginalValue.ToString("F4")</MudTd>
+                                            <MudTd>@context.OptimizedValue.ToString("F4")</MudTd>
+                                            <MudTd>@context.CrmValue.ToString("F4")</MudTd>
+                                            <MudTd>
+                                                <MudText Color="@(context.IsPassed ? Color.Success : Color.Error)">
+                                                    @context.OptimizedDiff.ToString("F2")%
+                                                </MudText>
+                                            </MudTd>
+                                            <MudTd>
+                                                @if (context.IsPassed)
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" />
+                                                }
+                                            </MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </MudExpansionPanel>
+                            </MudExpansionPanels>
+                        }
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        height: 200px;
+        overflow: scroll;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 0px 15px 0px 16px;
+        padding-inline-start: 16px;
+        padding-inline-end: 24px;
+    }
+
+    .mud-table-cell {
+        white-space: nowrap; /* جلوگیری از شکستن متن در سلول‌ها */
+    }
+
+    .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        /* height: 362px;
+        overflow: scroll; */
+    }
+ 
+</style>
+

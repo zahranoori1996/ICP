@@ -1,0 +1,166 @@
+@page "/changelog"
+@using WebUI.Services
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - Change Log</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="d-flex justify-space-between align-center">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">Change Log</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Track all changes made to project data
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="LoadChangeLogs"
+                       Disabled="_isLoading">
+                Refresh
+            </MudButton>
+        </div>
+    </MudPaper>
+
+    @if (_projectId == null)
+    {
+        <MudAlert Severity="Severity.Warning">
+            Please select a project first.
+        </MudAlert>
+    }
+    else
+    {
+        @* Filters *@
+        <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="string"
+                               Label="Change Type"
+                               @bind-Value="_filterType"
+                               Variant="Variant.Outlined"
+                               Clearable="true">
+                        <MudSelectItem Value="@("Import")">Import</MudSelectItem>
+                        <MudSelectItem Value="@("WeightCorrection")">Weight Correction</MudSelectItem>
+                        <MudSelectItem Value="@("VolumeCorrection")">Volume Correction</MudSelectItem>
+                        <MudSelectItem Value="@("DriftCorrection")">Drift Correction</MudSelectItem>
+                        <MudSelectItem Value="@("CrmCalibration")">CRM Calibration</MudSelectItem>
+                        <MudSelectItem Value="@("Delete")">Delete</MudSelectItem>
+                        <MudSelectItem Value="@("Export")">Export</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="From Date"
+                                   @bind-Date="_filterFromDate"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="To Date"
+                                   @bind-Date="_filterToDate"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudTextField @bind-Value="_filterUser"
+                                  Label="User"
+                                  Variant="Variant.Outlined"
+                                  Clearable="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @* Timeline *@
+        <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+            @if (_isLoading)
+            {
+                <div class="d-flex justify-center align-center" style="min-height: 300px;">
+                    <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                </div>
+            }
+            else if (_changeLogs.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info">
+                    No change logs found for this project.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTimeline TimelinePosition="TimelinePosition.Start">
+                    @foreach (var log in _filteredLogs)
+                    {
+                        <MudTimelineItem Color="@GetChangeColor(log.ChangeType)" Size="Size.Medium">
+                            <ItemOpposite>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @log.Timestamp.ToString("yyyy-MM-dd HH:mm")
+                                </MudText>
+                            </ItemOpposite>
+                            <ItemContent>
+                                <MudCard Elevation="1">
+                                    <MudCardHeader>
+                                        <CardHeaderAvatar>
+                                            <MudAvatar Color="@GetChangeColor(log.ChangeType)" Size="Size.Small">
+                                                <MudIcon Icon="@GetChangeIcon(log.ChangeType)" Size="Size.Small" />
+                                            </MudAvatar>
+                                        </CardHeaderAvatar>
+                                        <CardHeaderContent>
+                                            <MudText Typo="Typo.body1" Class="fw-medium">@log.ChangeType</MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                by @log.UserName
+                                            </MudText>
+                                        </CardHeaderContent>
+                                        <CardHeaderActions>
+                                            <MudIconButton Icon="@Icons.Material.Filled.ExpandMore"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => ToggleDetails(log))" />
+                                        </CardHeaderActions>
+                                    </MudCardHeader>
+                                    @if (log.ShowDetails)
+                                    {
+                                        <MudCardContent>
+                                            <MudText Typo="Typo.body2">@log.Description</MudText>
+                                            @if (log.AffectedRows > 0)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="mt-2">
+                                                    <MudIcon Icon="@Icons.Material.Filled.TableRows" Size="Size.Small" Class="me-1" />
+                                                    Affected Rows: @log.AffectedRows
+                                                </MudText>
+                                            }
+                                            @if (!string.IsNullOrEmpty(log.BeforeValue))
+                                            {
+                                                <MudDivider Class="my-2" />
+                                                <div class="d-flex gap-4">
+                                                    <div>
+                                                        <MudText Typo="Typo.caption">Before</MudText>
+                                                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@log.BeforeValue</MudText>
+                                                    </div>
+                                                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Class="mt-2" />
+                                                    <div>
+                                                        <MudText Typo="Typo.caption">After</MudText>
+                                                        <MudText Typo="Typo.body2">@log.AfterValue</MudText>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </MudCardContent>
+                                    }
+                                </MudCard>
+                            </ItemContent>
+                        </MudTimelineItem>
+                    }
+                </MudTimeline>
+
+                @* Pagination *@
+                <div class="d-flex justify-center mt-4">
+                    <MudPagination Count="@_totalPages"
+                                   @bind-Selected="_currentPage"
+                                   Color="Color.Primary"
+                                   ShowFirstButton="true"
+                                   ShowLastButton="true" />
+                </div>
+            }
+        </MudPaper>
+    }
+</MudContainer>
+
+

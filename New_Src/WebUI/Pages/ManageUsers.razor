@@ -1,0 +1,165 @@
+@page "/manage-users"
+@using Application.DTOs
+@using WebUI.Services
+@inject UserManagementService UserManagementService
+@inject AuthService AuthService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@attribute [Authorize(Roles = "Admin,admin")]
+
+<PageTitle>User Managment</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudStack Spacing="3">
+        <!-- Header -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudText Typo="Typo.h5" Class="fw-bold">User Managment</MudText>
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddUserDialog" StartIcon="@Icons.Material.Filled.PersonAdd">
+                Create New User
+            </MudButton>
+        </MudStack>
+
+        <!-- Loading State -->
+        @if (isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (users == null || users.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No Existing Users</MudAlert>
+        }
+        else
+        {
+            <!-- Users Table -->
+            <MudPaper Elevation="1">
+                <MudTable Items="@users" Hover="true" Striped="true" Dense="false">
+                    <HeaderContent>
+                        <MudTh>Username</MudTh>
+                        <MudTh>Full Name</MudTh>
+                        <MudTh>Position</MudTh>
+                        <MudTh Align="Align.Right">Action</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Username">
+                            <MudText>@context.Username</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="FullName">
+                            <MudText>@context.FullName</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Position">
+                            <MudChip T="string" Size="Size.Small" Color="@GetPositionColor(context.Position)">
+                                @context.Position
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Action" Align="Align.Right">
+                            <MudStack Row="true" Spacing="1">
+                                <MudIconButton Icon="@Icons.Material.Filled.Key" Color="Color.Warning" Size="Size.Small" 
+                                               OnClick="@(() => OpenChangePasswordDialog(context.Id))" Title="Change Password" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" 
+                                               OnClick="@(() => DeleteUserConfirm(context.Id))" Title="Delete User" />
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<UserListDto>? users;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            isLoading = true;
+            users = await UserManagementService.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error Loading The User List: " + ex.Message, Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OpenAddUserDialog()
+    {
+        var parameters = new DialogParameters();
+        var dialog = await DialogService.ShowAsync<AddUserDialog>("Adding A New User", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            await LoadUsers();
+            Snackbar.Add("User With Added Success", Severity.Success);
+        }
+    }
+
+    private async Task OpenChangePasswordDialog(Guid userId)
+    {
+        var parameters = new DialogParameters { { "UserId", userId } };
+        var dialog = await DialogService.ShowAsync<ChangePasswordDialog>("Change Password", parameters);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled)
+        {
+            Snackbar.Add("Password Successfully Changed", Severity.Success);
+        }
+    }
+
+    private async Task DeleteUserConfirm(Guid userId)
+    {
+        bool? confirmed = await DialogService.ShowMessageBox(
+            "Delete User",
+            "Are You Sure You Want To Delete This User?",
+            yesText: "Yes", noText: "No");
+
+        if (confirmed == true)
+        {
+            await DeleteUser(userId);
+        }
+    }
+
+    private async Task DeleteUser(Guid userId)
+    {
+        try
+        {
+            var success = await UserManagementService.DeleteUserAsync(userId);
+            if (success)
+            {
+                Snackbar.Add("User Successfully Deleted", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Error In Deletion", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error: " + ex.Message, Severity.Error);
+        }
+    }
+
+    private Color GetPositionColor(string position)
+    {
+        return position?.ToLower() switch
+        {
+            "admin" => Color.Error,
+            "analyst" => Color.Info,
+            "viewer" => Color.Default,
+            _ => Color.Default
+        };
+    }
+}

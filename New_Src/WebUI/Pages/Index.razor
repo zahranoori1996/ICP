@@ -1,0 +1,13 @@
+﻿@page "/index-old"
+@* This page is no longer used - Login is the main page *@
+
+<MudText>Redirecting...</MudText>
+
+@code {
+    [Inject] NavigationManager NavManager { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        NavManager.NavigateTo("/login");
+    }
+}

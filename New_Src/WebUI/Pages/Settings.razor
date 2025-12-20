@@ -1,0 +1,273 @@
+@page "/settings"
+@using WebUI.Services
+@inject AuthService AuthService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>ICP - Settings</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h4" Class="fw-bold">Settings</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Application configuration and preferences
+        </MudText>
+    </MudPaper>
+
+    <MudGrid>
+        @* General Settings *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Settings" Class="me-2" />
+                    General Settings
+                </MudText>
+
+                <MudSelect T="string"
+                           Label="Language"
+                           @bind-Value="_language"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="@("en")">English</MudSelectItem>
+                    <MudSelectItem Value="@("fa")">فارسی</MudSelectItem>
+                </MudSelect>
+
+                <MudSelect T="string"
+                           Label="Date Format"
+                           @bind-Value="_dateFormat"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="@("yyyy-MM-dd")">2024-01-15</MudSelectItem>
+                    <MudSelectItem Value="@("dd/MM/yyyy")">15/01/2024</MudSelectItem>
+                    <MudSelectItem Value="@("MM/dd/yyyy")">01/15/2024</MudSelectItem>
+                </MudSelect>
+
+                <MudSelect T="string"
+                           Label="Number Format"
+                           @bind-Value="_numberFormat"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="@(".")">1,234.56 (Dot decimal)</MudSelectItem>
+                    <MudSelectItem Value="@(",")">1.234,56 (Comma decimal)</MudSelectItem>
+                </MudSelect>
+
+                <MudNumericField @bind-Value="_decimalPlaces"
+                                 Label="Decimal Places"
+                                 Variant="Variant.Outlined"
+                                 Min="0"
+                                 Max="10"
+                                 Class="mb-4" />
+            </MudPaper>
+        </MudItem>
+
+        @* Analysis Settings *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Analytics" Class="me-2" />
+                    Analysis Settings
+                </MudText>
+
+                <MudNumericField @bind-Value="_defaultMinDiff"
+                                 Label="Default Min Diff (%)"
+                                 Variant="Variant.Outlined"
+                                 Step="1M"
+                                 Class="mb-4" />
+
+                <MudNumericField @bind-Value="_defaultMaxDiff"
+                                 Label="Default Max Diff (%)"
+                                 Variant="Variant.Outlined"
+                                 Step="1M"
+                                 Class="mb-4" />
+
+                <MudNumericField @bind-Value="_driftThreshold"
+                                 Label="Drift Detection Threshold"
+                                 Variant="Variant.Outlined"
+                                 Step="0.001M"
+                                 Class="mb-4" />
+
+                <MudSelect T="string"
+                           Label="Default Drift Method"
+                           @bind-Value="_defaultDriftMethod"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="@("linear")">Linear</MudSelectItem>
+                    <MudSelectItem Value="@("stepwise")">Stepwise</MudSelectItem>
+                    <MudSelectItem Value="@("polynomial")">Polynomial</MudSelectItem>
+                </MudSelect>
+            </MudPaper>
+        </MudItem>
+
+        @* API Settings *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Api" Class="me-2" />
+                    API Configuration
+                </MudText>
+
+                <MudTextField @bind-Value="_apiBaseUrl"
+                              Label="API Base URL"
+                              Variant="Variant.Outlined"
+                              Class="mb-4" />
+
+                <MudNumericField @bind-Value="_apiTimeout"
+                                 Label="API Timeout (seconds)"
+                                 Variant="Variant.Outlined"
+                                 Min="5"
+                                 Max="300"
+                                 Class="mb-4" />
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.NetworkCheck"
+                           OnClick="TestConnection"
+                           Disabled="_isTesting"
+                           Class="mb-2">
+                    @if (_isTesting)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                        <span>Testing...</span>
+                    }
+                    else
+                    {
+                        <span>Test Connection</span>
+                    }
+                </MudButton>
+
+                @if (_connectionStatus != null)
+                {
+                    <MudAlert Severity="@(_connectionSuccess ? Severity.Success : Severity.Error)" Class="mt-2">
+                        @_connectionStatus
+                    </MudAlert>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Export Settings *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.FileDownload" Class="me-2" />
+                    Export Settings
+                </MudText>
+
+                <MudSelect T="string"
+                           Label="Default Export Format"
+                           @bind-Value="_defaultExportFormat"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="@("excel")">Excel (.xlsx)</MudSelectItem>
+                    <MudSelectItem Value="@("csv")">CSV (.csv)</MudSelectItem>
+                    <MudSelectItem Value="@("json")">JSON (.json)</MudSelectItem>
+                </MudSelect>
+
+                <MudCheckBox @bind-Value="_includeHeaders"
+                             Label="Include Headers in Export"
+                             Color="Color.Primary"
+                             Class="mb-2" />
+
+                <MudCheckBox @bind-Value="_includeTimestamp"
+                             Label="Add Timestamp to Filename"
+                             Color="Color.Primary"
+                             Class="mb-2" />
+
+                <MudCheckBox @bind-Value="_compressExports"
+                             Label="Compress Large Exports"
+                             Color="Color.Primary"
+                             Class="mb-4" />
+            </MudPaper>
+        </MudItem>
+
+        @* Appearance *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Palette" Class="me-2" />
+                    Appearance
+                </MudText>
+
+                <MudSwitch @bind-Value="_darkMode"
+                           Label="Dark Mode"
+                           Color="Color.Primary"
+                           Class="mb-4" />
+
+                <MudSwitch @bind-Value="_compactMode"
+                           Label="Compact Tables"
+                           Color="Color.Primary"
+                           Class="mb-4" />
+
+                <MudSwitch @bind-Value="_showTooltips"
+                           Label="Show Tooltips"
+                           Color="Color.Primary"
+                           Class="mb-4" />
+
+                <MudSelect T="string"
+                           Label="Primary Color"
+                           @bind-Value="_primaryColor"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="@("#1976d2")">Blue</MudSelectItem>
+                    <MudSelectItem Value="@("#388e3c")">Green</MudSelectItem>
+                    <MudSelectItem Value="@("#7b1fa2")">Purple</MudSelectItem>
+                    <MudSelectItem Value="@("#d32f2f")">Red</MudSelectItem>
+                    <MudSelectItem Value="@("#f57c00")">Orange</MudSelectItem>
+                </MudSelect>
+            </MudPaper>
+        </MudItem>
+
+        @* User Account *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Class="me-2" />
+                    Account
+                </MudText>
+
+                <MudText Typo="Typo.body2" Class="mb-2">Current User</MudText>
+                <MudText Typo="Typo.body1" Class="fw-medium mb-4">@_currentUser</MudText>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Lock"
+                           OnClick="ChangePassword"
+                           Class="mb-2">
+                    Change Password
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Logout"
+                           OnClick="Logout">
+                    Logout
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* Save Button *@
+    <MudPaper Elevation="0" Class="pa-4 mt-4 d-flex justify-end gap-2">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Default"
+                   OnClick="ResetToDefaults">
+            Reset to Defaults
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="SaveSettings"
+                   Disabled="_isSaving">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+            }
+            Save Settings
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+

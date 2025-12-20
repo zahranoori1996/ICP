@@ -1,0 +1,335 @@
+﻿@page "/crm"
+@using WebUI.Services
+@inject CrmService CrmService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>ICP - CRM Database</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <div class="d-flex justify-space-between align-center">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">CRM Database</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Manage Certified Reference Materials and their element values
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Filled"
+                       Class="color-bg-dark-blue"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
+                Add CRM
+            </MudButton>
+        </div>
+    </MudPaper>
+
+    @* Search & Filter *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_searchText"
+                              Label="Search CRM"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true"
+                              OnKeyUp="OnSearchChanged" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudSelect T="string"
+                           Label="Analysis Method"
+                           Variant="Variant.Outlined"
+                           Value="_selectedMethod"
+                           ValueChanged="OnMethodChanged"
+                           Clearable="true">
+                    @foreach (var method in _analysisMethods)
+                    {
+                        <MudSelectItem Value="@method">@method</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="LoadCrmData"
+                           Class="mt-1 refresh-crm"
+                           Style="height: 56px;">
+                    Refresh
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* CRM Table *@
+    <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+        @if (_isLoading)
+        {
+            <div class="d-flex justify-center align-center" style="min-height: 300px;">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+            </div>
+        }
+        else if (_crmList.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">
+                No CRM records found. Click "Add CRM" to create a new record.
+            </MudAlert>
+        }
+        else
+        {
+            // ✅ تغییر: اتصال به _pagedRows به جای لیست اصلی
+            <MudTable Items="@_pagedRows"
+                      Hover="true"
+                      Dense="true"
+                      FixedHeader="true"
+                      Height="410px"
+                      Breakpoint="Breakpoint.None"
+                      HorizontalScrollbar="true"
+                      SortLabel="Sort By">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortBy="@((CrmListItemDto x) => x.CrmId)">CRM ID</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@((CrmListItemDto x) => x.AnalysisMethod)">Method</MudTableSortLabel></MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Elements</MudTh>
+                    <MudTh Style="width: 150px;">Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd><MudText Class="fw-medium">@context.CrmId</MudText></MudTd>
+                    <MudTd>@context.AnalysisMethod</MudTd>
+                    <MudTd>
+                        @if (context.IsOurOreas)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Our Oreas</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small">@context.Type</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var el in context.ElementValues.Take(5))
+                            {
+                                <MudChip T="string" Size="Size.Small" Class="color-bg-dark-blue">@el.Key: @el.Value.ToString("F4")</MudChip>
+                            }
+                            @if (context.ElementValues.Count > 5)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default">+@(context.ElementValues.Count - 5) more</MudChip>
+                            }
+                        </div>
+                    </MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                       Size="Size.Small"
+                                       Class="color-light-blue"
+                                       OnClick="@(() => ViewCrm(context))"
+                                       aria-label="View Details" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Size="Size.Small"
+                                       Class="color-dark-blue"
+                                       OnClick="@(() => EditCrm(context))"
+                                       aria-label="Edit" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteCrm(context))"
+                                       aria-label="Delete" />
+                    </MudTd>
+                </RowTemplate>
+                @* ❌ حذف PagerContent قدیمی *@
+            </MudTable>
+
+            @* ✅ اضافه کردن کنترل‌های پیجینیشن دستی (مشابه WeightCheck) *@
+            <div class="d-flex justify-center align-center mt-4 gap-4 change-flex-item">
+                <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged"
+                           Label="Per Page" Variant="Variant.Outlined"
+                           Dense="true" Style="width: 100px;">
+                    <MudSelectItem Value="10">10</MudSelectItem>
+                    <MudSelectItem Value="25">25</MudSelectItem>
+                    <MudSelectItem Value="50">50</MudSelectItem>
+                    <MudSelectItem Value="100">100</MudSelectItem>
+                </MudSelect>
+
+                <MudPagination Count="@_totalPages"
+                               Selected="_currentPage"
+                               SelectedChanged="OnPageChanged"
+                               ShowFirstButton="true"
+                               ShowLastButton="true"
+                               BoundaryCount="1"
+                               MiddleCount="3" />
+                <MudText Typo="Typo.caption" Class="d-flex justify-center mt-2">
+                    Showing @((_currentPage - 1) * _pageSize + 1) - @Math.Min(_currentPage * _pageSize, _totalCount) of @_totalCount
+                </MudText>
+            </div>
+
+        }
+    </MudPaper>
+</MudContainer>
+
+
+
+@* Add/Edit CRM Dialog *@
+<MudDialog @bind-Visible="_showDialog">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @(_isEditMode ? "Edit CRM" : "Add New CRM")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_editingCrm.CrmId"
+                              Label="CRM ID"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Disabled="_isEditMode" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_editingCrm.AnalysisMethod"
+                              Label="Analysis Method"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_editingCrm.Type"
+                              Label="Type"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudCheckBox @bind-Value="_editingCrm.IsOurOreas"
+                             Label="Our Oreas"
+                             Color="Color.Primary" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Element Values</MudText>
+                @foreach (var el in _editingElements)
+                {
+                    <MudGrid Class="mb-2">
+                        <MudItem xs="5">
+                            <MudTextField @bind-Value="el.Name"
+                                          Label="Element"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="5">
+                            <MudNumericField @bind-Value="el.Value"
+                                             Label="Value"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             Step="0.0001M" />
+                        </MudItem>
+                        <MudItem xs="2" Class="d-flex align-center">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => RemoveElement(el))" />
+                        </MudItem>
+                    </MudGrid>
+                }
+                <MudButton Variant="Variant.Text"
+                           Class="color-dark-blue"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddElement"
+                           Size="Size.Small">
+                    Add Element
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Class="color-bg-dark-blue"
+                   Variant="Variant.Filled"
+                   OnClick="SaveCrm"
+                   Disabled="_isSaving">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+            }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* View CRM Dialog *@
+<MudDialog @bind-Visible="_showViewDialog">
+    <TitleContent>
+        <MudText Typo="Typo.h6">CRM Details: @_viewingCrm?.CrmId</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_viewingCrm != null)
+        {
+            <MudGrid>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">CRM ID</MudText>
+                    <MudText Typo="Typo.body1" Class="fw-medium">@_viewingCrm.CrmId</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Analysis Method</MudText>
+                    <MudText Typo="Typo.body1">@(_viewingCrm.AnalysisMethod ?? "-")</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Type</MudText>
+                    <MudText Typo="Typo.body1">@(_viewingCrm.Type ?? "-")</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption">Our Oreas</MudText>
+                    <MudText Typo="Typo.body1">@(_viewingCrm.IsOurOreas ? "Yes" : "No")</MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Element Values</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <thead>
+                            <tr>
+                                <th>Element</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var el in _viewingCrm.ElementValues)
+                            {
+                                <tr>
+                                    <td>@el.Key</td>
+                                    <td>@el.Value.ToString("F4")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _showViewDialog = false)">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+<style>
+  
+    .mud-simple-table table {
+        width: 100%;
+        display: table;
+        border-spacing: 0;
+        border-collapse: collapse;
+        /* height: 200px; */
+        overflow: scroll;
+    }
+
+    .mud-table-dense * .mud-table-row .mud-table-cell {
+        padding: 2px 15px 2px 16px;
+        padding-inline-start: 16px;
+        padding-inline-end: 24px;
+    }
+
+    .mud-table {
+        color: var(--mud-palette-text-primary);
+        background-color: var(--mud-palette-surface);
+        border-radius: var(--mud-default-borderradius);
+        transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+        /* height: 420px;
+        overflow: scroll; */
+    }
+
+ 
+</style>

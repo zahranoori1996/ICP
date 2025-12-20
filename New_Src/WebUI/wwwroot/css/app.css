@@ -1,0 +1,366 @@
+﻿/* ===================================
+   ICP - Global Styles
+   =================================== */
+
+/* --- CSS Variables (Theme) --- */
+:root {
+    /* Primary Colors */
+    --primary-color: #004a88;
+    --secondary-color: #1c6397;
+    --accent-color: #4cc2e6;
+    /* Text Colors dark*/
+    --text-primary: #2c3e50;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    /* Text Colors dark*/
+    --text-dark: #2c3e50;
+    --text-gray: #64748b;
+    --text-gray-light: #94a3b8;
+    /*Text Colors Light*/
+    --text-Light: #FAFCFF;
+    --text-white: #FFFFFF;
+    /* Background Light*/
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-surface: #f6f8fb;
+    /* Background Gradient*/
+    --bg-gradient-blue: linear-gradient(340deg,rgba(28, 99, 151, 1) 13%, rgba(76, 194, 230, 1) 97%);
+    --bg-gradient-light: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    --bg-gradient-dark: linear-gradient(135deg,rgba(15, 7, 54, 1) 0%, rgba(82, 82, 84, 1) 100%);
+    /*button background*/
+    --bg-blue: #3696c2;
+    /* Border Radius */
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    /* Border Radius */
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0. 05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0. 1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0. 1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0. 1);
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 350ms ease;
+    /*active menu color*/
+    --sidebar-active-color: #00BCD4;
+}
+
+.color-white {
+    color: white;
+    text-shadow: 0 0 2px #000;
+}
+
+.color-light-blue {
+    color: var(--accent-color);
+}
+
+.color-dark-blue {
+    color: var(--primary-color);
+}
+
+.color-bg-dark-blue {
+    background-color: var(--secondary-color);
+    color: #fff;
+    font-weight: 500;
+}
+
+    .color-bg-dark-blue:hover {
+        background-color: var(--bg-blue);
+        color: #000;
+    }
+
+.color-border {
+    border: 1px solid var(--bg-primary);
+}
+
+.refresh-crm {
+    color: var(--secondary-color);
+    border: 1px solid var(--secondary-color);
+}
+
+    .refresh-crm:hover {
+        color: var(--secondary-color);
+        border: 1px solid var(--secondary-color);
+        box-shadow: rgba(0, 188, 212, 0.15) 0px 5px 10px !important;
+        background: #d7f3f7;
+        transform: translateY(-2px);
+        transition: all 0.3s ease-in-out;
+    }
+
+.custom-card-all {
+    /*    box-shadow: 0 4px 10px rgba(0, 188, 212, 0.15) !important;*/
+    box-shadow: rgba(0, 188, 212, 0.15) 0px 0px 3px !important;
+    border-radius: var(--radius-md) !important;
+    border: 1px solid rgba(0, 188, 212, 0.1);
+}
+/* --- Base Styles --- */
+html, body {
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--mud-palette-background);
+    color: var(--mud-palette-text-primary);
+    margin: 0;
+    padding: 0;
+}
+
+
+.dashboard-hero {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(140deg, #1c6397 0%, #4cc2e6 100%);
+    color: #ffffff;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 20px 30px -15px rgba(0, 74, 136, 0.45);
+}
+
+.stat-card__label {
+    font-size: 0.95rem;
+    opacity: .9;
+}
+
+.stat-card__value {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+/* --- Buttons --- */
+.btn-primary {
+    background: linear-gradient(to bottom, var(--primary-500), var(--primary-600)) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    border-radius: var(--radius-lg) !important;
+    transition: all var(--transition-normal) !important;
+}
+
+    .btn-primary:hover {
+        background: linear-gradient(to bottom, var(--primary-400), var(--primary-500)) !important;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+.btn-outline {
+    border: 2px solid var(--neutral-400) !important;
+    color: var(--neutral-500) !important;
+    font-weight: 600 !important;
+    border-radius: var(--radius-lg) !important;
+    background: transparent !important;
+    transition: all var(--transition-normal) !important;
+}
+
+    .btn-outline:hover {
+        background: var(--neutral-100) !important;
+        border-color: var(--neutral-500) !important;
+    }
+
+.btn-lg {
+    height: 56px !important;
+    font-size: 1rem !important;
+}
+
+.btn-md {
+    height: 48px !important;
+    font-size: 0.95rem !important;
+}
+
+/* --- Form Inputs --- */
+.input-outlined.mud-input-outlined-border {
+    border-radius: var(--radius-lg) !important;
+    border-width: 2px !important;
+    border-color: var(--neutral-300) !important;
+    transition: all var(--transition-normal) !important;
+}
+
+.input-outlined:focus-within .mud-input-outlined-border {
+    border-color: var(--primary-500) !important;
+}
+
+/* --- Links --- */
+.link {
+    color: var(--primary-500);
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+    .link:hover {
+        color: var(--primary-700);
+        text-decoration: underline;
+    }
+
+/* --- Cards --- */
+.card {
+    background: var(--bg-primary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+}
+
+.card-hoverable {
+    transition: all var(--transition-normal);
+    cursor: pointer;
+}
+
+    .card-hoverable:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+
+/* --- Typography --- */
+.title-xl {
+    font-weight: 900;
+    font-size: 4rem;
+    color: var(--text-primary);
+    letter-spacing: -2px;
+}
+
+.title-lg {
+    font-weight: 800;
+    font-size: 2rem;
+    color: var(--text-primary);
+}
+
+.title-md {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* --- Utilities --- */
+.full-height {
+    min-height: 100vh;
+}
+
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* --- Panel Backgrounds --- */
+.panel-light {
+    background: linear-gradient(135deg, #ffffff 0%, var(--neutral-100) 100%);
+}
+
+.panel-gradient {
+    background: var(--bg-gradient);
+}
+/*Override Style  MudBlazor.min.css Dashboard*/
+
+.header-color {
+    background: var(--bg-gradient-blue);
+}
+
+.mud-nav-link-text:active {
+    font-weight: 700 !important;
+    color: var(--secondary-color) !important;
+}
+
+.mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
+    font-weight: 700 !important;
+    color: var(--secondary-color) !important;
+}
+/* آیکون آیتم اکتیو */
+.mud-nav-item .mud-nav-link.mud-ripple.mud-nav-link-active .mud-icon-root {
+    color: #00BCD4 !important;
+}
+
+.mud-nav-item:active {
+    font-weight: 700 !important;
+    color: var(--secondary-color) !important;
+}
+
+/*Override Style aside home page*/
+.mud-drawer.mud-drawer-mini.mud-drawer-pos-left.mud-drawer--closed {
+    width: 70px;
+}
+
+/* در app.css */
+.custom-card {
+    /*    box-shadow: 0 4px 10px rgba(0, 188, 212, 0.15) !important;*/
+    box-shadow: rgba(0, 188, 212, 0.15) 0px 0px 3px !important;
+    border-radius: var(--radius-md) !important;
+    border: 1px solid rgba(0, 188, 212, 0.1);
+}
+
+    .custom-card:hover {
+        /*        box-shadow: 0 8px 30px rgba(0, 188, 212, 0.2) !important;*/
+        box-shadow: rgba(0, 188, 212, 0.15) 0px 4px 9px !important;
+    }
+
+
+
+/* Active NavLink icon color */
+.mud-nav-link.active .mud-icon-root {
+    color: var(--secondary-color) !important;
+}
+
+/* For NavGroup items */
+.mud-navmenu .mud-nav-link.active .mud-icon-root {
+    color: var(--secondary-color) !important;
+}
+
+.height-75 {
+    height: 75vh;
+    overflow: scroll;
+}
+
+.height-inner {
+    height: 87%;
+    overflow: scroll;
+}
+
+.height-segmants {
+    height: 31vh;
+    overflow: scroll;
+}
+
+.box-shadow-0 {
+    box-shadow: 0 0 0 transparent;
+}
+.height-input {
+/*    height: 20px;*/
+/*    padding:11px 14px;*/
+
+}
+/* all items*/
+
+@media (max-width: 768px) {
+    .h4-title {
+        font-size: 1rem;
+    }
+    .p-description{
+        font-size: .8rem;
+    }
+   
+}
+
+@media (max-width: 600px) {
+    .change-flex-item {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 380px) {
+   
+}
+
+
+

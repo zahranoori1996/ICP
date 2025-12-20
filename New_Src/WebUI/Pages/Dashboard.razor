@@ -1,0 +1,191 @@
+﻿@page "/dashboard"
+@using WebUI.Services
+@inject AuthService AuthService
+@inject ProjectService ProjectService
+@inject NavigationManager NavManager
+@inject ISnackbar Snackbar
+
+<PageTitle>ICP - Dashboard</PageTitle>
+
+@{
+    var user = AuthService.GetCurrentUser();
+    var userName = user?.Name ?? "User";
+    var userPosition = user?.Position ?? "User";
+}
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <!-- Welcome Header -->
+    <div class="d-flex justify-space-between align-center mb-4">
+        <div>
+            <MudText Typo="Typo.h4" Class="fw-bold">
+                Welcome back, @userName!
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @userPosition | @DateTime.Now.ToString("dddd, MMMM dd, yyyy")
+            </MudText>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="0" Class="pa-4 custom-card">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.h4" Class="fw-bold result-random-icons">@_totalProjects</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Total Projects</MudText>
+                    </div>
+                    <MudAvatar Class="result-random-icons" Variant="Variant.Outlined" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.Folder" Class="result-random-icons" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="0" Class="pa-4 custom-card">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.h4" Class="fw-bold result-random-icons">@_samplesAnalyzed</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Samples Analyzed</MudText>
+                    </div>
+                    <MudAvatar Class="result-random-icons" Variant="Variant.Outlined" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.Science" Class="result-random-icons" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="0" Class="pa-4 custom-card">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.h4" Class="fw-bold result-random-icons">@_crmStandards</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">CRM Standards</MudText>
+                    </div>
+                    <MudAvatar Class="result-random-icons" Variant="Variant.Outlined" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Class="result-random-icons" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="0" Class="pa-4 custom-card">
+                <div class="d-flex justify-space-between align-center">
+                    <div>
+                        <MudText Typo="Typo.h4" Class="fw-bold result-random-icons">@_passRate%</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Pass Rate</MudText>
+                    </div>
+                    <MudAvatar Class="result-random-icons" Variant="Variant.Outlined" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="result-random-icons" />
+                    </MudAvatar>
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <!-- Quick Actions -->
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="0" Class="pa-4 custom-card-all">
+                <div class="d-flex align-center mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.FlashOn" Class="me-2" />
+                    <MudText Typo="Typo.h6">Quick Actions</MudText>
+                </div>
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined"
+                                   FullWidth="true"
+                                   Class="pa-4 d-flex flex-column box-action"
+                                   Style="height: 100px;"
+                                   OnClick="@(() => NavManager.NavigateTo("/import"))">
+                            <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Class="icon-action-color" Size="Size.Large" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Import Data</MudText>
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined"
+                                   FullWidth="true"
+                                   Class="pa-4 d-flex flex-column box-action"
+                                   Style="height: 100px;"
+                                   OnClick="@(() => NavManager.NavigateTo("/projects"))">
+                            <MudIcon Icon="@Icons.Material.Filled.Folder" Class="icon-action-color" Size="Size.Large" />
+                            <MudText Typo="Typo.body2" Class="mt-2 text-black">Projects</MudText>
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined"
+                                   FullWidth="true"
+                                   Class="pa-4 d-flex flex-column box-action"
+                                   Style="height: 100px;"
+                                   OnClick="@(() => NavManager.NavigateTo("/pivot"))">
+                            <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="icon-action-color" Size="Size.Large" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Pivot Table</MudText>
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined"
+                                   FullWidth="true"
+                                   Class="pa-4 d-flex flex-column box-action"
+                                   Style="height: 100px;"
+                                   OnClick="@(() => NavManager.NavigateTo("/process/weight"))">
+                            <MudIcon Icon="@Icons.Material.Filled.Engineering" Class="icon-action-color" Size="Size.Large" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Process</MudText>
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined"
+                                   FullWidth="true"
+                                   Class="pa-4 d-flex flex-column box-action"
+                                   Style="height: 100px;"
+                                   OnClick="@(() => NavManager.NavigateTo("/crm"))">
+                            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Class="icon-action-color" Size="Size.Large" />
+                            <MudText Typo="Typo.body2" Class="mt-2">CRM Database</MudText>
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Variant="Variant.Outlined"
+                                   FullWidth="true"
+                                   Class="pa-4 d-flex flex-column box-action"
+                                   Style="height: 100px;"
+                                   OnClick="@(() => NavManager.NavigateTo("/report"))">
+                            <MudIcon Icon="@Icons.Material.Filled.Assessment" Class="icon-action-color" Size="Size.Large" />
+                            <MudText Typo="Typo.body2" Class="mt-2">Reports</MudText>
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Recent Projects -->
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="0" Class="pa-4 custom-card-all" Style="height: 100%;">
+                <div class="d-flex align-center mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Class="me-2" />
+                    <MudText Typo="Typo.h6">Recent Projects</MudText>
+                </div>
+                @if (_recentProjects.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No recent projects</MudText>
+                }
+                else
+                {
+                    <MudList T="string" Dense="true">
+                        @foreach (var project in _recentProjects.Take(5))
+                        {
+                            <MudListItem Icon="@Icons.Material.Filled.FolderOpen"
+                                         OnClick="@(() => NavManager.NavigateTo($"/pivot?projectId={project.Id}"))">
+                                <MudText Typo="Typo.body2">@project.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@project.Date.ToString("MMM dd, yyyy")</MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                <MudButton Variant="Variant.Text"
+                           FullWidth="true"
+                           Class="mt-2 color-dark-blue"
+                           OnClick="@(() => NavManager.NavigateTo("/projects"))">
+                    VIEW ALL PROJECTS
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+

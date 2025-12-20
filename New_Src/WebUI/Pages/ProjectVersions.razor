@@ -1,0 +1,254 @@
+@page "/project/{ProjectId:guid}/versions"
+@inject IVersionService VersionService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Version History - @_projectName</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudBreadcrumbs Items="_breadcrumbs" Class="mb-4" />
+
+    <MudPaper Class="pa-4">
+        <div class="d-flex justify-space-between align-center mb-4">
+            <div>
+                <MudText Typo="Typo.h5">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+                    Version History
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Select a version to continue from that point
+                </MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" 
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => Navigation.NavigateTo($"/pivot?projectId={ProjectId}"))">
+                Back to Project
+            </MudButton>
+        </div>
+
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_versions == null || !_versions.Any())
+        {
+            <MudAlert Severity="Severity.Info">No versions found for this project.</MudAlert>
+        }
+        else
+        {
+            <MudTimeline TimelinePosition="TimelinePosition.Start">
+                @foreach (var version in _versions.OrderByDescending(v => v.Timestamp))
+                {
+                    <MudTimelineItem Color="@(version.IsActive ? Color.Success : Color.Default)"
+                                     Size="@(version.IsActive ? Size.Large : Size.Medium)"
+                                     Elevation="@(version.IsActive ? 2 : 0)">
+                        <ItemOpposite>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @version.Timestamp.ToString("yyyy-MM-dd HH:mm")
+                            </MudText>
+                        </ItemOpposite>
+                        <ItemContent>
+                            <MudCard Outlined="true" Class="@(version.IsActive ? "border-success" : "")">
+                                <MudCardHeader>
+                                    <CardHeaderAvatar>
+                                        <MudAvatar Color="@GetProcessingTypeColor(version.ProcessingType)" Size="Size.Small">
+                                            <MudIcon Icon="@GetProcessingTypeIcon(version.ProcessingType)" Size="Size.Small" />
+                                        </MudAvatar>
+                                    </CardHeaderAvatar>
+                                    <CardHeaderContent>
+                                        <MudText Typo="Typo.subtitle1">
+                                            <strong>v@version.VersionNumber</strong> - @version.ProcessingType
+                                            @if (version.IsActive)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ml-2">Active</MudChip>
+                                            }
+                                        </MudText>
+                                        @if (!string.IsNullOrEmpty(version.Description))
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@version.Description</MudText>
+                                        }
+                                    </CardHeaderContent>
+                                    <CardHeaderActions>
+                                        @if (!version.IsActive)
+                                        {
+                                            <MudTooltip Text="Continue from this version">
+                                                <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
+                                                               Color="Color.Primary"
+                                                               OnClick="@(() => SwitchToVersion(version))" />
+                                            </MudTooltip>
+                                            <MudTooltip Text="Fork from this version">
+                                                <MudIconButton Icon="@Icons.Material.Filled.CallSplit"
+                                                               Color="Color.Secondary"
+                                                               OnClick="@(() => ForkFromVersion(version))" />
+                                            </MudTooltip>
+                                        }
+                                        else
+                                        {
+                                            <MudTooltip Text="Currently active">
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                                            </MudTooltip>
+                                        }
+                                    </CardHeaderActions>
+                                </MudCardHeader>
+                                @if (version.ParentStateId.HasValue)
+                                {
+                                    <MudCardContent Class="pt-0">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight" Size="Size.Small" />
+                                            From: v@(_versions.FirstOrDefault(v => v.StateId == version.ParentStateId)?.VersionNumber ?? 0)
+                                        </MudText>
+                                    </MudCardContent>
+                                }
+                            </MudCard>
+                        </ItemContent>
+                    </MudTimelineItem>
+                }
+            </MudTimeline>
+        }
+    </MudPaper>
+
+    @* Version Tree View - Simple List *@
+    <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.AccountTree" Class="mr-2" />
+            Version Tree
+        </MudText>
+        
+        @if (_versionTree != null && _versionTree.Any())
+        {
+            @foreach (var node in _versionTree)
+            {
+                @RenderVersionNode(node, 0)
+            }
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Parameter]
+    public Guid ProjectId { get; set; }
+
+    private string _projectName = "Project";
+    private bool _loading = true;
+    private List<ProjectState>? _versions;
+    private List<VersionNodeDto>? _versionTree;
+    private List<BreadcrumbItem> _breadcrumbs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _breadcrumbs = new List<BreadcrumbItem>
+        {
+            new("Projects", "/projects", false, Icons.Material.Filled.Folder),
+            new("Version History", null, true, Icons.Material.Filled.History)
+        };
+
+        await LoadVersions();
+    }
+
+    private async Task LoadVersions()
+    {
+        _loading = true;
+        try
+        {
+            var versionsResult = await VersionService.GetAllVersionsAsync(ProjectId);
+            if (versionsResult.Succeeded)
+            {
+                _versions = versionsResult.Data;
+            }
+
+            var treeResult = await VersionService.GetVersionTreeAsync(ProjectId);
+            if (treeResult.Succeeded)
+            {
+                _versionTree = treeResult.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading versions: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SwitchToVersion(ProjectState version)
+    {
+        var result = await VersionService.SwitchToVersionAsync(ProjectId, version.StateId);
+        if (result.Succeeded)
+        {
+            Snackbar.Add($"Switched to version {version.VersionNumber}", Severity.Success);
+            Navigation.NavigateTo($"/pivot?projectId={ProjectId}");
+        }
+        else
+        {
+            Snackbar.Add($"Error: {string.Join(", ", result.Messages)}", Severity.Error);
+        }
+    }
+
+    private async Task ForkFromVersion(ProjectState version)
+    {
+        // Navigate to pivot with fork parameter
+        Navigation.NavigateTo($"/pivot?projectId={ProjectId}&forkFrom={version.StateId}");
+    }
+
+    private Color GetProcessingTypeColor(string processingType) => processingType switch
+    {
+        ProcessingTypes.Import => Color.Primary,
+        ProcessingTypes.WeightCorrection => Color.Info,
+        ProcessingTypes.VolumeCorrection => Color.Info,
+        ProcessingTypes.DfCorrection => Color.Info,
+        ProcessingTypes.DriftCorrection => Color.Warning,
+        ProcessingTypes.CrmCheck => Color.Success,
+        ProcessingTypes.RmCheck => Color.Secondary,
+        ProcessingTypes.EmptyRowRemoval => Color.Error,
+        ProcessingTypes.ManualEdit => Color.Dark,
+        ProcessingTypes.Optimization => Color.Tertiary,
+        _ => Color.Default
+    };
+
+    private string GetProcessingTypeIcon(string processingType) => processingType switch
+    {
+        ProcessingTypes.Import => Icons.Material.Filled.Upload,
+        ProcessingTypes.WeightCorrection => Icons.Material.Filled.Scale,
+        ProcessingTypes.VolumeCorrection => Icons.Material.Filled.Opacity,
+        ProcessingTypes.DfCorrection => Icons.Material.Filled.Functions,
+        ProcessingTypes.DriftCorrection => Icons.Material.Filled.TrendingUp,
+        ProcessingTypes.CrmCheck => Icons.Material.Filled.VerifiedUser,
+        ProcessingTypes.RmCheck => Icons.Material.Filled.Science,
+        ProcessingTypes.EmptyRowRemoval => Icons.Material.Filled.DeleteSweep,
+        ProcessingTypes.ManualEdit => Icons.Material.Filled.Edit,
+        ProcessingTypes.Optimization => Icons.Material.Filled.AutoFixHigh,
+        _ => Icons.Material.Filled.Circle
+    };
+
+    private RenderFragment RenderVersionNode(VersionNodeDto node, int depth) => __builder =>
+    {
+        <div style="margin-left: @(depth * 24)px" class="d-flex align-center pa-2 rounded mb-1 @(node.IsActive ? "mud-theme-primary" : "")">
+            @if (node.Children.Any())
+            {
+                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="mr-1" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Class="mr-1" Style="font-size: 8px;" />
+            }
+            <MudIcon Icon="@GetProcessingTypeIcon(node.ProcessingType)" Size="Size.Small" Color="@GetProcessingTypeColor(node.ProcessingType)" Class="mr-2" />
+            <MudText Typo="Typo.body2">
+                <strong>v@node.VersionNumber</strong> - @node.ProcessingType
+            </MudText>
+            @if (node.IsActive)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ml-2">Active</MudChip>
+            }
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-auto">
+                @node.Timestamp.ToString("MM/dd HH:mm")
+            </MudText>
+        </div>
+        @foreach (var child in node.Children)
+        {
+            @RenderVersionNode(child, depth + 1)
+        }
+    };
+}
