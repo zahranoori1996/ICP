@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -9,11 +10,13 @@ public class UserManagementService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<UserManagementService> _logger;
+    private readonly AuthService _authService;
 
-    public UserManagementService(IHttpClientFactory clientFactory, ILogger<UserManagementService> logger)
+    public UserManagementService(IHttpClientFactory clientFactory, ILogger<UserManagementService> logger, AuthService authService)
     {
         _httpClient = clientFactory.CreateClient("Api");
         _logger = logger;
+        _authService = authService;
     }
 
     /// <summary>
@@ -23,8 +26,24 @@ public class UserManagementService
     {
         try
         {
-            var response = await _httpClient.GetAsync("usermanagement/all");
-            response.EnsureSuccessStatusCode();
+            var request = new HttpRequestMessage(HttpMethod.Get, "usermanagement/all");
+            SetAuthHeader(request);
+            
+            var response = await _httpClient.SendAsync(request);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to retrieve users. Status: {StatusCode}, Response: {Content}", 
+                    response.StatusCode, errorContent);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    throw new UnauthorizedAccessException("شما مجاز به مشاهده لیست کاربران نیستید. لطفاً دوباره وارد شوید.");
+                }
+                
+                response.EnsureSuccessStatusCode();
+            }
 
             var content = await response.Content.ReadAsStringAsync();
             var users = JsonSerializer.Deserialize<List<UserListDto>>(content,
@@ -32,6 +51,10 @@ public class UserManagementService
 
             _logger.LogInformation("Retrieved users list");
             return users ?? new List<UserListDto>();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -47,7 +70,10 @@ public class UserManagementService
     {
         try
         {
-            var response = await _httpClient.GetAsync($"usermanagement/{userId}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"usermanagement/{userId}");
+            SetAuthHeader(request);
+            
+            var response = await _httpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
                 return null;
@@ -72,7 +98,13 @@ public class UserManagementService
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("usermanagement/create", createUserDto);
+            var request = new HttpRequestMessage(HttpMethod.Post, "usermanagement/create")
+            {
+                Content = JsonContent.Create(createUserDto)
+            };
+            SetAuthHeader(request);
+            
+            var response = await _httpClient.SendAsync(request);
             var content = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -102,7 +134,13 @@ public class UserManagementService
         try
         {
             var dto = new UpdateUserPasswordDto { UserId = userId, NewPassword = newPassword };
-            var response = await _httpClient.PostAsJsonAsync("usermanagement/change-password", dto);
+            var request = new HttpRequestMessage(HttpMethod.Post, "usermanagement/change-password")
+            {
+                Content = JsonContent.Create(dto)
+            };
+            SetAuthHeader(request);
+            
+            var response = await _httpClient.SendAsync(request);
             var content = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -131,7 +169,10 @@ public class UserManagementService
     {
         try
         {
-            var response = await _httpClient.DeleteAsync($"usermanagement/{userId}");
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"usermanagement/{userId}");
+            SetAuthHeader(request);
+            
+            var response = await _httpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
                 return false;
@@ -146,6 +187,23 @@ public class UserManagementService
         {
             _logger.LogError(ex, "Error deleting user {UserId}", userId);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Set authorization header with bearer token
+    /// </summary>
+    private void SetAuthHeader(HttpRequestMessage request)
+    {
+        var token = _authService.GetAccessToken();
+        if (!string.IsNullOrEmpty(token))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            _logger.LogDebug("Authorization header set for request to {Uri}", request.RequestUri);
+        }
+        else
+        {
+            _logger.LogWarning("No access token available for request to {Uri}", request.RequestUri);
         }
     }
 }
