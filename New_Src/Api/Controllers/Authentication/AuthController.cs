@@ -143,7 +143,7 @@ public class AuthController : ControllerBase
     private string GenerateJwtToken(string username, string fullName, string position)
     {
         var jwtSettings = _configuration.GetSection("Jwt");
-        var secret = jwtSettings["Secret"] ?? "IsatisICP-SuperSecret-Key-2024-Must-Be-At-Least-32-Characters! ";
+        var secret = jwtSettings["Secret"] ?? "IsatisICP-SuperSecret-Key-2024-Must-Be-At-Least-32-Characters!";
         var issuer = jwtSettings["Issuer"] ?? "IsatisICP";
         var audience = jwtSettings["Audience"] ?? "IsatisICP-Users";
         var expiryMinutes = int.Parse(jwtSettings["AccessTokenExpiryMinutes"] ?? "60");
