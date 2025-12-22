@@ -100,19 +100,45 @@ public class ProjectPersistenceService : IProjectPersistenceService
         try
         {
             var project = await _db.Projects
-                .Include(p => p.RawDataRows)
-                .Include(p => p.ProjectStates)
-                .FirstOrDefaultAsync(p => p.ProjectId == projectId);
+                .AsNoTracking()
+                .Where(p => p.ProjectId == projectId)
+                .Select(p => new
+                {
+                    p.ProjectId,
+                    p.ProjectName,
+                    p.CreatedAt,
+                    p.LastModifiedAt,
+                    p.Owner
+                })
+                .FirstOrDefaultAsync();
 
             if (project == null)
                 return Result<ProjectLoadDto>.Fail("Project not found.");
 
-            var rawRows = project.RawDataRows
+            var rawRows = await _db.RawDataRows
+                .AsNoTracking()
+                .Where(r => r.ProjectId == projectId)
                 .OrderBy(r => r.DataId)
                 .Select(r => new RawDataDto(r.ColumnData, r.SampleId))
-                .ToList();
+                .ToListAsync();
 
-            var latestState = project.ProjectStates.OrderByDescending(s => s.Timestamp).FirstOrDefault()?.Data;
+            var latestStateId = await _db.ProjectStates
+                .AsNoTracking()
+                .Where(s => s.ProjectId == projectId)
+                .OrderByDescending(s => s.Timestamp)
+                .ThenByDescending(s => s.StateId)
+                .Select(s => (int?)s.StateId)
+                .FirstOrDefaultAsync();
+
+            string? latestState = null;
+            if (latestStateId.HasValue)
+            {
+                latestState = await _db.ProjectStates
+                    .AsNoTracking()
+                    .Where(s => s.StateId == latestStateId.Value)
+                    .Select(s => s.Data)
+                    .FirstOrDefaultAsync();
+            }
 
             var dto = new ProjectLoadDto(project.ProjectId, project.ProjectName, project.CreatedAt, project.LastModifiedAt, project.Owner, rawRows, latestState);
 

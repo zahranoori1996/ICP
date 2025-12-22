@@ -19,8 +19,13 @@ public record DriftCorrectionRequest(
     bool UseSegmentation = true,
     string? BasePattern = null,
     string? ConePattern = null,
-    string? ChangedBy = null
-);
+    string? ChangedBy = null,
+    bool DebugDumpRm = false
+)
+{
+    public string? Keyword { get; init; }
+    public int? TargetRmNum { get; init; }
+}
 
 /// <summary>
 /// Defines the available mathematical algorithms for drift correction.
@@ -64,7 +69,8 @@ public record DriftCorrectionResult(
     int SegmentsFound,
     List<DriftSegment> Segments,
     Dictionary<string, ElementDriftInfo> ElementDrifts,
-    List<CorrectedSampleDto> CorrectedData
+    List<CorrectedSampleDto> CorrectedData,
+    DebugRmDumpDto? DebugRmDump = null
 );
 
 /// <summary>
@@ -180,4 +186,17 @@ public record SlopeOptimizationResult(
     decimal OriginalIntercept,
     decimal NewIntercept,
     List<CorrectedSampleDto> CorrectedData
+);
+
+public sealed record DebugRmDumpDto(
+    int Count,
+    List<DebugRmItemDto> First10,
+    List<DebugRmItemDto> Last10
+);
+
+public sealed record DebugRmItemDto(
+    int PivotIndex,
+    string SolutionLabel,
+    int RmNum,
+    string RmType
 );

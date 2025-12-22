@@ -79,3 +79,8 @@ public class OperationResultDto
     [JsonPropertyName("message")]
     public string Message { get; set; } = string.Empty;
 }
+public class ChangeMyPasswordDto
+{
+    public string CurrentPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
+}

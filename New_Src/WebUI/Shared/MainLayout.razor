@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @using WebUI.Services
 @inject AuthService AuthService
 @inject NavigationManager NavManager
@@ -33,17 +33,20 @@ else
             <MudIconButton Icon="@(_isDarkMode? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                            Color="Color.Inherit"
                            OnClick="ToggleDarkMode" />
+        
             <MudMenu Icon="@Icons.Material.Filled.Person" Color="Color.Inherit">
                 <MudMenuItem Icon="@Icons.Material.Filled.Person">@(user?.Name ?? "User")</MudMenuItem>
                 <MudMenuItem Icon="@Icons.Material.Filled.Badge">@(user?.Position ?? "User")</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="@(() => NavManager.NavigateTo("/settings"))">Settings</MudMenuItem>
                 <MudDivider />
-                @* <MudMenuItem Icon="@Icons.Material.Filled.Settings" OnClick="@(() => NavManager.NavigateTo("/settings"))">Settings</MudMenuItem> *@
+
                 @if (user?.Position?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false)
                 {
-                    <MudDivider Class="my-2" />
-                    <MudNavLink Href="/manage-users" Icon="@Icons.Material.Filled.ManageAccounts" Match="NavLinkMatch.All">
-                        User Managment
-                    </MudNavLink>
+                    
+                    <MudMenuItem Icon="@Icons.Material.Filled.ManageAccounts"
+                                 OnClick="@(() => NavManager.NavigateTo("/manage-users"))">
+                        User Management
+                    </MudMenuItem>
                 }
 
                 <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">Sign Out</MudMenuItem>

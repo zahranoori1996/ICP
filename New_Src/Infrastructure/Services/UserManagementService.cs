@@ -90,15 +90,15 @@ public class UserManagementService : IUserManagementService
             if (await UsernameExistsAsync(createUserDto.Username))
             {
                 _logger.LogWarning("Username {Username} already exists", createUserDto.Username);
-                return (false, "نام کاربری از قبل وجود دارد", null);
+                return (false, "Username already exists", null);
             }
 
             // Validate input
             if (string.IsNullOrWhiteSpace(createUserDto.Username))
-                return (false, "نام کاربری نمی‌تواند خالی باشد", null);
+                return (false, "Username cannot be empty.", null);
 
             if (string.IsNullOrWhiteSpace(createUserDto.Password))
-                return (false, "رمز عبور نمی‌تواند خالی باشد", null);
+                return (false, "Password cannot be empty.", null);
 
             // Create new user
             var newUser = new Users
@@ -123,12 +123,12 @@ public class UserManagementService : IUserManagementService
                 Position = newUser.Position
             };
 
-            return (true, "کاربر با موفقیت ایجاد شد", responseDto);
+            return (true, "User created successfully.", responseDto);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating new user");
-            return (false, "خطا در ایجاد کاربر", null);
+            return (false, "Error creating user", null);
         }
     }
 
@@ -140,22 +140,22 @@ public class UserManagementService : IUserManagementService
         try
         {
             if (string.IsNullOrWhiteSpace(newPassword))
-                return (false, "رمز عبور نمی‌تواند خالی باشد");
+                return (false, "Password cannot be empty.");
 
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
-                return (false, "کاربر یافت نشد");
+                return (false, "User not found");
 
             user.PasswordHash = HashPassword(newPassword);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Password updated for user: {Username}", user.Username);
-            return (true, "رمز عبور با موفقیت تغییر کرد");
+            return (true, "Password changed successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating user password for user ID {UserId}", userId);
-            return (false, "خطا در تغییر رمز عبور");
+            return (false, "Error changing password");
         }
     }
 
@@ -168,18 +168,18 @@ public class UserManagementService : IUserManagementService
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
-                return (false, "کاربر یافت نشد");
+                return (false, "User not found");
 
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("User deleted: {Username}", user.Username);
-            return (true, "کاربر با موفقیت حذف شد");
+            return (true, "User successfully deleted.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting user with ID {UserId}", userId);
-            return (false, "خطا در حذف کاربر");
+            return (false, "Error deleting user");
         }
     }
 

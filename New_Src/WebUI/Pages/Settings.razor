@@ -5,6 +5,7 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
+
 <PageTitle>ICP - Settings</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
@@ -17,7 +18,7 @@
 
     <MudGrid>
         @* General Settings *@
-        <MudItem xs="12" md="6">
+       @*  <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-4">
                     <MudIcon Icon="@Icons.Material.Filled.Settings" Class="me-2" />
@@ -59,10 +60,10 @@
                                  Max="10"
                                  Class="mb-4" />
             </MudPaper>
-        </MudItem>
+        </MudItem> *@
 
         @* Analysis Settings *@
-        <MudItem xs="12" md="6">
+       @*  <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-4">
                     <MudIcon Icon="@Icons.Material.Filled.Analytics" Class="me-2" />
@@ -97,10 +98,10 @@
                     <MudSelectItem Value="@("polynomial")">Polynomial</MudSelectItem>
                 </MudSelect>
             </MudPaper>
-        </MudItem>
+        </MudItem> *@
 
         @* API Settings *@
-        <MudItem xs="12" md="6">
+      @*   <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-4">
                     <MudIcon Icon="@Icons.Material.Filled.Api" Class="me-2" />
@@ -144,10 +145,10 @@
                     </MudAlert>
                 }
             </MudPaper>
-        </MudItem>
+        </MudItem> *@
 
         @* Export Settings *@
-        <MudItem xs="12" md="6">
+       @*  <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-4">
                     <MudIcon Icon="@Icons.Material.Filled.FileDownload" Class="me-2" />
@@ -179,10 +180,10 @@
                              Color="Color.Primary"
                              Class="mb-4" />
             </MudPaper>
-        </MudItem>
+        </MudItem> *@
 
         @* Appearance *@
-        <MudItem xs="12" md="6">
+        @* <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-4">
                     <MudIcon Icon="@Icons.Material.Filled.Palette" Class="me-2" />
@@ -216,10 +217,10 @@
                     <MudSelectItem Value="@("#f57c00")">Orange</MudSelectItem>
                 </MudSelect>
             </MudPaper>
-        </MudItem>
+        </MudItem>  *@
 
         @* User Account *@
-        <MudItem xs="12" md="6">
+       @*  <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-4">
                     <MudIcon Icon="@Icons.Material.Filled.Person" Class="me-2" />
@@ -246,17 +247,95 @@
                     Logout
                 </MudButton>
             </MudPaper>
+        </MudItem> *@
+
+
+        @* User Account *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Class="me-2" />
+                    Account & Security
+                </MudText>
+
+                <div style="display:flex; align-items:center; gap: 8px;">
+                    <MudText Typo="Typo.body2" Class="fw-normal">Current User : </MudText>
+                    <MudText Typo="Typo.body1" Class="fw-bold">@_currentUser</MudText>
+                </div>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.subtitle2" Class="mb-3">Change Password</MudText>
+                <MudForm @ref="_passwordForm">
+                    <MudTextField @bind-Value="_currentPassword"
+                                  Label="Current Password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@_currentPasswordInput"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@_currentPasswordIcon"
+                                  OnAdornmentClick="() => ToggleVisibility(1)"
+                                  Required="true"
+                                  RequiredError="Current password is required"
+                                  Class="mb-3" />
+
+                    <MudTextField @bind-Value="_newPassword"
+                                  Label="New Password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@_newPasswordInput"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@_newPasswordIcon"
+                                  OnAdornmentClick="() => ToggleVisibility(2)"
+                                  Required="true"
+                                  Immediate="true"
+                                  Validation="@(new Func<string, string?>(ValidateNewPassword))"
+                                  Class="mb-3" />
+
+                    <MudTextField @bind-Value="_confirmNewPassword"
+                                  Label="Confirm New Password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@_confirmNewPasswordInput"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@_confirmNewPasswordIcon"
+                                  OnAdornmentClick="() => ToggleVisibility(3)"
+                                  Required="true"
+                                  Immediate="true"
+                                  Validation="@(new Func<string, string?>(ValidateConfirmPassword))"
+                                  Class="mb-4" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Update"
+                               OnClick="HandleChangePassword"
+                               Disabled="_isChangingPassword">
+                        @if (_isChangingPassword)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                        }
+                        Update Password
+                    </MudButton>
+                </MudForm>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Logout"
+                           OnClick="Logout"
+                           Class="mt-4">
+                    Logout 
+                </MudButton>
+            </MudPaper>
         </MudItem>
     </MudGrid>
 
     @* Save Button *@
-    <MudPaper Elevation="0" Class="pa-4 mt-4 d-flex justify-end gap-2">
-        <MudButton Variant="Variant.Outlined"
+    @* <MudPaper Elevation="0" Class="pa-4 mt-4 d-flex justify-end gap-2"> *@
+        @* <MudButton Variant="Variant.Outlined"
                    Color="Color.Default"
                    OnClick="ResetToDefaults">
             Reset to Defaults
-        </MudButton>
-        <MudButton Variant="Variant.Filled"
+        </MudButton> *@
+    @*     <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Save"
                    OnClick="SaveSettings"
@@ -267,7 +346,7 @@
             }
             Save Settings
         </MudButton>
-    </MudPaper>
+    </MudPaper> *@
 </MudContainer>
 
 

@@ -1,7 +1,8 @@
 ﻿using Application.DTOs;
+using Application.Services;
 using Shared.Wrapper;
 
-namespace Application.Services;
+namespace Application.Interface;
 
 public interface IDfCorrectionService : IBaseCorrectionService
 {

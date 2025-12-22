@@ -39,7 +39,7 @@ public class UserManagementService
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    throw new UnauthorizedAccessException("شما مجاز به مشاهده لیست کاربران نیستید. لطفاً دوباره وارد شوید.");
+                    throw new UnauthorizedAccessException("You are not authorized to view the user list. Please log in again.");
                 }
                 
                 response.EnsureSuccessStatusCode();
@@ -109,15 +109,29 @@ public class UserManagementService
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = JsonSerializer.Deserialize<dynamic>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                return (false, error?.message?.ToString() ?? "خطا در ایجاد کاربر", null);
+                var content1 = await response.Content.ReadAsStringAsync();
+
+                try
+                {
+                    using var jsonDoc = JsonDocument.Parse(content1);
+                    if (jsonDoc.RootElement.TryGetProperty("message", out var messageElement))
+                    {
+                        return (false, messageElement.GetString() ?? "An error has occurred.", null);
+                    }
+
+                    // اگر سرور خطاها را در قالب دیگری می‌فرستد (مثل مدل پیش‌فرض ASP.NET Core)
+                    return (false, "این نام کاربری قبلاً انتخاب شده است یا داده‌ها معتبر نیستند", null);
+                }
+                catch
+                {
+                    return (false, "An unexpected error occurred on the server.", null);
+                }
             }
 
             var result = JsonSerializer.Deserialize<CreateUserResponseDto>(content,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            return (result?.Success ?? false, result?.Message ?? "کاربر ایجاد شد", result?.User);
+            return (result?.Success ?? false, result?.Message ?? "User created", result?.User);
         }
         catch (Exception ex)
         {
@@ -147,13 +161,13 @@ public class UserManagementService
             {
                 var error = JsonSerializer.Deserialize<dynamic>(content,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                return (false, error?.message?.ToString() ?? "خطا در تغییر رمز عبور");
+                return (false, error?.message?.ToString() ?? "Error changing password");
             }
 
             var result = JsonSerializer.Deserialize<OperationResultDto>(content,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            return (result?.Success ?? false, result?.Message ?? "رمز عبور تغییر کرد");
+            return (result?.Success ?? false, result?.Message ?? "Password changed.");
         }
         catch (Exception ex)
         {
@@ -206,6 +220,41 @@ public class UserManagementService
             _logger.LogWarning("No access token available for request to {Uri}", request.RequestUri);
         }
     }
+
+    public async Task<(bool Success, string Message)> ChangePasswordAsync(string currentPassword, string newPassword)
+    {
+        try
+        {
+            var model = new
+            {
+                CurrentPassword = currentPassword,
+                NewPassword = newPassword
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "usermanagement/change-my-password")
+            {
+                Content = JsonContent.Create(model)
+            };
+
+            SetAuthHeader(request); // 👈 اضافه کردن هدر Authorization
+
+            var response = await _httpClient.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return (true, "Password changed successfully");
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            return (false, errorContent);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error changing password");
+            return (false, "Server connection error");
+        }
+    }
+
 }
 
 /// <summary>

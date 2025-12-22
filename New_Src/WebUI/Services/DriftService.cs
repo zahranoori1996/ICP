@@ -35,6 +35,12 @@ public class DriftCorrectionRequest
 
     [JsonPropertyName("conePattern")]
     public string? ConePattern { get; set; }
+
+    [JsonPropertyName("keyword")]
+    public string? Keyword { get; set; }
+
+    [JsonPropertyName("targetRmNum")]
+    public int? TargetRmNum { get; set; }
 }
 
 public class DriftCorrectionResult

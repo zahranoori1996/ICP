@@ -50,14 +50,14 @@ public class DriftCorrectionServiceTests : IDisposable
         // Create a sequence with drift
         var samples = new (string Label, decimal Fe, decimal Cu)[]
         {
-            ("OREAS 258", 100m, 10m),
+            ("RM 258", 100m, 10m),
             ("Sample1", 98m, 9.8m),
             ("Sample2", 97m, 9.7m),
             ("Sample3", 96m, 9.6m),
-            ("OREAS 259", 95m, 9.5m),
+            ("RM 259", 95m, 9.5m),
             ("Sample4", 94m, 9.4m),
             ("Sample5", 93m, 9.3m),
-            ("OREAS 260", 90m, 9.0m)
+            ("RM 260", 90m, 9.0m)
         };
 
         foreach (var sample in samples)
@@ -67,7 +67,7 @@ public class DriftCorrectionServiceTests : IDisposable
                 ["Solution Label"] = sample.Label,
                 ["Fe"] = sample.Fe,
                 ["Cu"] = sample.Cu,
-                ["Type"] = sample.Label.StartsWith("OREAS") ? "Std" : "Samp"
+                ["Type"] = "Samp"
             };
 
             _db.RawDataRows.Add(new RawDataRow
@@ -208,7 +208,7 @@ public class DriftCorrectionServiceTests : IDisposable
         // Act
         var result = await _driftService.DetectSegmentsAsync(
             _testProjectId,
-            basePattern: @"^OREAS",
+            basePattern: @"^RM",
             conePattern: @"^CAL"
         );
 

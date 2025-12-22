@@ -65,7 +65,8 @@ namespace WebUI.Pages.Process
                 ProjectId = _projectId.Value,
                 Method = _method,
                 UseSegmentation = _useSegmentation,
-                SelectedElements = _selectedElements.Any() ? _selectedElements.ToList() : null
+                SelectedElements = _selectedElements.Any() ? _selectedElements.ToList() : null,
+                Keyword = "RM"
             };
 
             var result = await DriftService.AnalyzeDriftAsync(request);
@@ -100,7 +101,8 @@ namespace WebUI.Pages.Process
                 ProjectId = _projectId.Value,
                 Method = _method,
                 UseSegmentation = _useSegmentation,
-                SelectedElements = _selectedElements.Any() ? _selectedElements.ToList() : null
+                SelectedElements = _selectedElements.Any() ? _selectedElements.ToList() : null,
+                Keyword = "RM"
             };
 
             var result = await DriftService.ApplyDriftCorrectionAsync(request);

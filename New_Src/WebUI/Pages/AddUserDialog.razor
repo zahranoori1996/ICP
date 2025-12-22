@@ -1,31 +1,72 @@
-@using Application.DTOs
+﻿@using Application.DTOs
 @using WebUI.Services
 @using MudBlazor
 
 <MudDialog>
     <DialogContent>
-        <MudStack Spacing="3">
-            <MudTextField @bind-Value="newUser.Username" Label="Username" Variant="Variant.Outlined"
-                          Placeholder="Please Enter Your Username" />
+        <MudForm @ref="form" @bind-IsValid="@success">
+            <MudStack Spacing="3">
+                @* Username Field *@
+                <MudTextField @bind-Value="newUser.Username"
+                              Label="Username"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Required="true"
+                              RequiredError="UserName is required"
+                              Validation="@(new Func<string, string?>(ValidateUsername))"
+                              Placeholder="Please Enter Your Username" />
 
-            <MudTextField @bind-Value="newUser.Password" Label="Password" Variant="Variant.Outlined"
-                          InputType="@passwordInput" Placeholder="Please Enter The Password"
-                          Adornment="Adornment.End" AdornmentIcon="@passwordInputIcon" OnAdornmentClick="TogglePasswordVisibility" />
+                @* Password Field *@
+                <MudTextField @bind-Value="newUser.Password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Immediate="true"
+                              RequiredError="Password is required"
+                              InputType="@passwordInput"
+                              Placeholder="Please Enter The Password"
+                              Validation="@(new Func<string, string?>(ValidatePassword))"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@passwordInputIcon"
+                              OnAdornmentClick="TogglePasswordVisibility" />
 
-            <MudTextField @bind-Value="newUser.FullName" Label="Full Name" Variant="Variant.Outlined"
-                          Placeholder="Please Enter The Full Name" />
+                @* Confirm Password Field *@
+                <MudTextField @bind-Value="_confirmPassword"
+                              Label="Confirm Password"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Immediate="true"
+                              RequiredError="Confirm Password is required"
+                              InputType="@passwordInput"
+                              Placeholder="Please Enter The Password Again"
+                              Validation="@(new Func<string, string?>(ValidateConfirmPassword))"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@passwordInputIcon"
+                              OnAdornmentClick="TogglePasswordVisibility" />
 
-            <MudSelect @bind-Value="newUser.Position" Label="Position" Variant="Variant.Outlined">
-                <MudSelectItem Value="@("User")">User</MudSelectItem>
-                <MudSelectItem Value="@("Analyst")">Analyst</MudSelectItem>
-                <MudSelectItem Value="@("Admin")">Admin</MudSelectItem>
-            </MudSelect>
-        </MudStack>
+                @* Full Name Field *@
+                <MudTextField @bind-Value="newUser.FullName"
+                              Label="Full Name"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Placeholder="Please Enter The Full Name" />
+
+                @* Position Selection *@
+                <MudSelect @bind-Value="newUser.Position" Label="Position" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("User")">User</MudSelectItem>
+                    <MudSelectItem Value="@("Analyst")">Analyst</MudSelectItem>
+                    <MudSelectItem Value="@("Admin")">Admin</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+        </MudForm>
     </DialogContent>
 
     <DialogActions>
         <MudButton OnClick="Cancel">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit" Disabled="@isSubmitting">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="Submit"
+                   Disabled="@(isSubmitting || !success)">
             @if (isSubmitting)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ms-2" />
@@ -37,11 +78,13 @@
 
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
-
     [Inject] UserManagementService UserManagementService { get; set; } = null!;
     [Inject] ISnackbar Snackbar { get; set; } = null!;
 
+    private MudForm form = null!;
+    private bool success;
     private CreateUserDto newUser = new();
+    private string? _confirmPassword;
     private bool isSubmitting = false;
     private InputType passwordInput = InputType.Password;
     private string passwordInputIcon = Icons.Material.Filled.VisibilityOff;
@@ -62,32 +105,23 @@
 
     private async Task Submit()
     {
+        await form.Validate();
+        if (!form.IsValid) return;
+
         try
         {
             isSubmitting = true;
-
-            if (string.IsNullOrWhiteSpace(newUser.Username))
-            {
-                Snackbar.Add("Username Is Required", Severity.Warning);
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(newUser.Password))
-            {
-                Snackbar.Add("Password Is Required", Severity.Warning);
-                return;
-            }
 
             if (string.IsNullOrWhiteSpace(newUser.FullName))
             {
                 newUser.FullName = newUser.Username;
             }
 
-            var (success, message, user) = await UserManagementService.CreateUserAsync(newUser);
+            var (isSuccess, message, user) = await UserManagementService.CreateUserAsync(newUser);
 
-            if (success)
+            if (isSuccess)
             {
-                Snackbar.Add(message, Severity.Success);
+                // Snackbar.Add(message, Severity.Success);
                 MudDialog.Close(DialogResult.Ok(user));
             }
             else
@@ -105,8 +139,37 @@
         }
     }
 
-    private void Cancel()
+    private void Cancel() => MudDialog.Cancel();
+
+   
+    private string? ValidateUsername(string value)
     {
-        MudDialog.Cancel();
+        if (ContainsPersian(value))
+            return "Please use English characters only";
+        if (!string.IsNullOrEmpty(value) && value.Length < 4)
+            return "Username must be at least 4 characters";
+        return null;
+    }
+
+    private string? ValidatePassword(string value)
+    {
+        if (ContainsPersian(value))
+            return "Please use English characters only";
+        if (string.IsNullOrEmpty(value) || value.Length < 6)
+            return "Password must be at least 6 characters";
+        return null;
+    }
+
+    private string? ValidateConfirmPassword(string value)
+    {
+        if (value != newUser.Password)
+            return "Passwords do not match";
+        return null;
+    }
+
+    private bool ContainsPersian(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+        return text.Any(c => c >= 0x0600 && c <= 0x06FF);
     }
 }
