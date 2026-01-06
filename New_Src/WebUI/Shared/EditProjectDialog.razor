@@ -1,0 +1,83 @@
+@using MudBlazor
+@using Microsoft.AspNetCore.Components
+@using WebUI.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Edit Project</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.caption" Color="Color.Warning">
+            Debug: Device='@editModel.Device' | FileType='@editModel.FileType'
+        </MudText>
+        <MudTextField @bind-Value="editModel.ProjectName" Label="Project Name"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+
+        <MudSelect @bind-Value="editModel.Device" T="string" Label="Device"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+            @if (DeviceOptions != null)
+            {
+                @foreach (var device in DeviceOptions)
+                {
+                    <MudSelectItem Value="@device">@device</MudSelectItem>
+                }
+            }
+        </MudSelect>
+
+        <MudSelect @bind-Value="editModel.FileType" T="string" Label="File Type"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+            @if (FileTypeOptions != null)
+            {
+                @foreach (var type in FileTypeOptions)
+                {
+                    <MudSelectItem Value="@type">@type</MudSelectItem>
+                }
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="editModel.Description" Label="Description"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">CANCEL</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">SAVE</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public ProjectUiModel? Item { get; set; }
+
+    [Parameter]
+    public List<string>? DeviceOptions { get; set; }
+
+    [Parameter]
+    public List<string>? FileTypeOptions { get; set; }
+
+    private ProjectUiModel editModel = new();
+
+    protected override void OnInitialized()
+    {
+        if (Item != null)
+        {
+            editModel = new ProjectUiModel
+            {
+                Id = Item.Id,
+                ProjectName = Item.ProjectName,
+                CreatedBy = Item.CreatedBy,
+                Created = Item.Created,
+                Device = Item.Device,
+                FileType = Item.FileType,
+                Description = Item.Description,
+                Status = Item.Status
+            };
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private void Save() => MudDialog?.Close(DialogResult.Ok(editModel));
+}

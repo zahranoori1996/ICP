@@ -70,6 +70,22 @@ public class ReportController : ControllerBase
     }
 
     /// <summary>
+    /// Exports raw project data to an Excel file.
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project.</param>
+    /// <returns>An Excel file containing the raw project data.</returns>
+    [HttpGet("{projectId:guid}/excel/raw")]
+    public async Task<ActionResult> ExportRawExcel(Guid projectId)
+    {
+        var result = await _reportService.ExportRawExcelAsync(projectId);
+
+        if (!result.Succeeded)
+            return BadRequest(new { succeeded = false, messages = result.Messages });
+
+        return File(result.Data!, ExcelContentType, $"raw_export_{projectId}_{DateTime.Now:yyyyMMdd}.xlsx");
+    }
+
+    /// <summary>
     /// Exports project data to a CSV file.
     /// </summary>
     /// <param name="projectId">The unique identifier of the project.</param>

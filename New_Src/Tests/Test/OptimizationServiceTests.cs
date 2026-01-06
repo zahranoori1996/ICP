@@ -103,6 +103,7 @@ public class OptimizationServiceTests : IDisposable
             50,
             20,
             false,
+            false,
             null
         );
 
@@ -125,6 +126,7 @@ public class OptimizationServiceTests : IDisposable
             10m,
             50,
             20,
+            false,
             false,
             null
         );
@@ -158,6 +160,7 @@ public class OptimizationServiceTests : IDisposable
             10m,
             100,
             20,
+            false,
             false,
             null
         );

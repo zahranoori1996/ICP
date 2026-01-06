@@ -65,98 +65,41 @@ public class PivotService : IPivotService
 
     private async Task<Result<PivotResultDto>> GetPivotTableIcpFormatAsync(Project project, PivotRequest request)
     {
-        var pivotDict = new Dictionary<string, Dictionary<string, decimal?>>();
-        var allElements = new HashSet<string>();
-        var allLabels = new HashSet<string>();
+        // Use advanced pivot logic (GCD/repeats) for Python parity.
+        var advancedRequest = new AdvancedPivotRequest(
+            ProjectId: request.ProjectId,
+            SearchText: request.SearchText,
+            SelectedSolutionLabels: request.SelectedSolutionLabels,
+            SelectedElements: request.SelectedElements,
+            NumberFilters: request.NumberFilters,
+            UseOxide: request.UseOxide,
+            UseInt: false,
+            DecimalPlaces: request.DecimalPlaces,
+            Page: request.Page,
+            PageSize: request.PageSize,
+            Aggregation: PivotAggregation.First,
+            MergeRepeats: false
+        );
 
-        // Run CPU-bound work on a thread pool thread to avoid blocking if processing is heavy
-        // or process synchronously if it's light. Here we keep it simple.
+        var advancedResult = await GetAdvancedPivotTableAsync(advancedRequest);
+        if (!advancedResult.Succeeded || advancedResult.Data == null)
+            return Result<PivotResultDto>.Fail(advancedResult.Messages.FirstOrDefault() ?? "Failed to build pivot");
 
-        foreach (var rawRow in project.RawDataRows.OrderBy(r => r.DataId))
-        {
-            var rowData = ParseRowData(rawRow);
-            if (rowData == null) continue;
-
-            var solutionLabel = GetSolutionLabel(rawRow, rowData);
-            if (string.IsNullOrWhiteSpace(solutionLabel)) continue;
-
-            allLabels.Add(solutionLabel);
-
-            var elementName = GetStringValue(rowData, "Element");
-            if (string.IsNullOrWhiteSpace(elementName)) continue;
-
-            allElements.Add(elementName);
-
-            var corrCon = GetDecimalValue(rowData, "Corr Con");
-
-            if (request.UseOxide && corrCon.HasValue)
-            {
-                var elementSymbol = ExtractElementSymbol(elementName);
-                if (OxideFactors.Factors.TryGetValue(elementSymbol, out var oxide))
-                {
-                    corrCon = corrCon.Value * oxide.Factor;
-                }
-            }
-
-            if (!pivotDict.ContainsKey(solutionLabel))
-            {
-                pivotDict[solutionLabel] = new Dictionary<string, decimal?>();
-            }
-            pivotDict[solutionLabel][elementName] = corrCon;
-        }
-
-        // Apply filters
-        var filteredLabels = allLabels.AsEnumerable();
-
-        if (request.SelectedSolutionLabels?.Any() == true)
-        {
-            filteredLabels = filteredLabels.Where(l => request.SelectedSolutionLabels.Contains(l));
-        }
-
-        if (!string.IsNullOrWhiteSpace(request.SearchText))
-        {
-            var search = request.SearchText.ToLower();
-            filteredLabels = filteredLabels.Where(l => l.ToLower().Contains(search));
-        }
-
-        var filteredList = filteredLabels.ToList();
-        var totalCount = filteredList.Count;
-
-        var pagedLabels = filteredList
-            .Skip((request.Page - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .ToList();
-
-        var columns = allElements.OrderBy(e => e).ToList();
-        if (request.SelectedElements?.Any() == true)
-        {
-            columns = columns.Where(c =>
-                request.SelectedElements.Any(e => c.Contains(e, StringComparison.OrdinalIgnoreCase))).ToList();
-        }
-
-        int index = 0;
-        var rows = new List<PivotRowDto>();
-        foreach (var label in pagedLabels)
-        {
-            var values = pivotDict.TryGetValue(label, out var v) ? v : new Dictionary<string, decimal?>();
-            var roundedValues = RoundValues(values, request.DecimalPlaces);
-            rows.Add(new PivotRowDto(label, roundedValues, index++));
-        }
-
-        var allData = filteredList.Select(l => (l, pivotDict.TryGetValue(l, out var v) ? v : new Dictionary<string, decimal?>(), 0)).ToList();
-        var columnStats = CalculateColumnStats(allData, columns);
+        var data = advancedResult.Data;
+        var rows = data.Rows.Select(r => new PivotRowDto(r.SolutionLabel, r.Values, r.OriginalIndex)).ToList();
+        var metadata = new PivotMetadataDto(
+            data.Metadata.AllSolutionLabels,
+            data.Metadata.AllElements,
+            data.Metadata.ColumnStats
+        );
 
         return Result<PivotResultDto>.Success(new PivotResultDto(
-            columns,
+            data.Columns,
             rows,
-            totalCount,
-            request.Page,
-            request.PageSize,
-            new PivotMetadataDto(
-                allLabels.OrderBy(l => l).ToList(),
-                allElements.OrderBy(e => e).ToList(),
-                columnStats
-            )
+            data.TotalCount,
+            data.Page,
+            data.PageSize,
+            metadata
         ));
     }
 
@@ -308,7 +251,7 @@ public class PivotService : IPivotService
                 var solutionLabel = GetSolutionLabel(rawRow, rowData);
                 if (string.IsNullOrWhiteSpace(solutionLabel)) continue;
 
-                var type = GetStringValue(rowData, "Type");
+                var type = GetStringValue(rowData, "Type")?.Trim();
                 if (type != "Samp" && type != "Sample")
                     continue;
 
@@ -487,7 +430,7 @@ public class PivotService : IPivotService
                 var solutionLabel = GetSolutionLabel(rawRow, rowData);
                 if (string.IsNullOrWhiteSpace(solutionLabel)) continue;
 
-                var type = GetStringValue(rowData, "Type");
+                var type = GetStringValue(rowData, "Type")?.Trim();
                 if (type != "Samp" && type != "Sample") continue;
 
                 var element = GetStringValue(rowData, "Element");
@@ -789,8 +732,9 @@ public class PivotService : IPivotService
             return sets;
         }
 
-        // CORRECT LOGIC: rowsPerSet = Total rows / Number of Sets (setSize)
-        int rowsPerSet = rows.Count / setSize;
+        // FIXED LOGIC: setSize is already "rows per set" (calculated as TotalRows / GCD)
+        // So we should use it directly as the chunk size.
+        int rowsPerSet = setSize;
 
         for (int i = 0; i < rows.Count; i += rowsPerSet)
         {
@@ -846,10 +790,23 @@ public class PivotService : IPivotService
 
     private string? GetSolutionLabel(RawDataRow rawRow, Dictionary<string, object?> rowData)
     {
-        if (!string.IsNullOrWhiteSpace(rawRow.SampleId)) return rawRow.SampleId;
-        if (rowData.TryGetValue("Solution Label", out var sl) && sl != null) return sl.ToString();
-        if (rowData.TryGetValue("SolutionLabel", out var sl2) && sl2 != null) return sl2.ToString();
-        return null;
+        string? label = null;
+
+        if (!string.IsNullOrWhiteSpace(rawRow.SampleId))
+            label = rawRow.SampleId;
+        else if (rowData.TryGetValue("Solution Label", out var sl) && sl != null)
+            label = sl.ToString();
+        else if (rowData.TryGetValue("SolutionLabel", out var sl2) && sl2 != null)
+            label = sl2.ToString();
+
+        if (label == null)
+            return "Unknown";
+
+        label = label.Trim();
+        if (string.IsNullOrWhiteSpace(label) || label.Equals("nan", StringComparison.OrdinalIgnoreCase))
+            return "Unknown";
+
+        return label;
     }
 
     private string? GetStringValue(Dictionary<string, object?> rowData, string key)

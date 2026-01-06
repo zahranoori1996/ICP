@@ -32,7 +32,7 @@ public class CrmController : ControllerBase
     /// <param name="searchText">The search text for filtering CRMs (optional).</param>
     /// <param name="ourOreasOnly">Indicates whether to filter only OREAS CRMs (optional).</param>
     /// <param name="page">The page number for pagination (default: 1).</param>
-    /// <param name="pageSize">The number of items per page (default: 50).</param>
+    /// <param name="pageSize">The number of items per page (default: 0 to return all).</param>
     /// <returns>A paginated list of CRMs matching the criteria.</returns>
     [HttpGet]
     public async Task<ActionResult> GetCrmList(
@@ -40,7 +40,7 @@ public class CrmController : ControllerBase
         [FromQuery] string? searchText = null,
         [FromQuery] bool? ourOreasOnly = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 0)
     {
         var result = await _crmService.GetCrmListAsync(analysisMethod, searchText, ourOreasOnly, page, pageSize);
         if (!result.Succeeded)

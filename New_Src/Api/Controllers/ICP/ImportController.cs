@@ -160,7 +160,10 @@ public class ImportController : ControllerBase
         [FromForm] int? headerRow = null,
         [FromForm] bool skipLastRow = true,
         [FromForm] bool autoDetectType = true,
-        [FromForm] string? defaultType = "Samp")
+        [FromForm] string? defaultType = "Samp",
+        [FromForm] string? device = null,
+        [FromForm] string? fileType = null,
+        [FromForm] string? description = null)
     {
         if (file == null || file.Length == 0)
         {
@@ -187,7 +190,10 @@ public class ImportController : ControllerBase
             null,
             skipLastRow,
             autoDetectType,
-            defaultType
+            defaultType,
+            device,
+            fileType,
+            description
         );
 
         using var stream = file.OpenReadStream();

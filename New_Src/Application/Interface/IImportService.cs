@@ -95,4 +95,7 @@ public interface IImportService
         AdvancedImportRequest request,
         IProgress<(int total, int processed, string message)>? progress = null,
         CancellationToken cancellationToken = default);
+
+
+    Task<Result<AnalysisPreviewResult>> AnalyzeFileAsync(Stream fileStream, string fileName);
 }

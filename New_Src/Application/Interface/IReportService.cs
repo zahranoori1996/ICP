@@ -66,4 +66,8 @@ public interface IReportService
     /// <param name="request">An object specifying criteria for wavelength selection.</param>
     /// <returns>A result containing the mapping of best wavelengths for each data point.</returns>
     Task<Result<BestWavelengthResult>> SelectBestWavelengthsAsync(BestWavelengthRequest request);
+    /// <summary>
+    /// Exports the raw (unprocessed) data to an Excel file.
+    /// </summary>
+    Task<Result<byte[]>> ExportRawExcelAsync(Guid projectId);
 }

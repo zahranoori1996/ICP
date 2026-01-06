@@ -245,6 +245,7 @@ public class ReportService : IReportService
         {
             var pivotResult = await _pivotService.GetPivotTableAsync(new PivotRequest(
                 projectId,
+                DecimalPlaces: 6,
                 PageSize: int.MaxValue
             ));
 
@@ -383,6 +384,81 @@ public class ReportService : IReportService
             return Result<string>.Fail($"Failed to generate HTML report: {ex.Message}");
         }
     }
+
+        public async Task<Result<byte[]>> ExportRawExcelAsync(Guid projectId)
+        {
+            try
+            {
+                var project = await _db.Projects
+                    .AsNoTracking()
+                    .Include(p => p.RawDataRows)
+                    .FirstOrDefaultAsync(p => p.ProjectId == projectId);
+
+                if (project == null) return Result<byte[]>.Fail("Project not found");
+                if (!project.RawDataRows.Any()) return Result<byte[]>.Fail("No data found");
+
+                using var workbook = new XLWorkbook();
+                var ws = workbook.Worksheets.Add("Raw Data");
+
+                // Parse all rows to find all potential columns
+                var allRows = new List<Dictionary<string, object>>();
+                var allColumns = new HashSet<string>();
+
+                foreach (var row in project.RawDataRows.OrderBy(r => r.DataId))
+                {
+                    try
+                    {
+                        var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(row.ColumnData);
+                        if (dict != null)
+                        {
+                            allRows.Add(dict);
+                            foreach (var key in dict.Keys) allColumns.Add(key);
+                        }
+                    }
+                    catch { /* Ignore parse errors */ }
+                }
+
+                var sortedColumns = allColumns.OrderBy(c => c).ToList();
+                // Ensure common columns are first if possible (Solution Label, etc)
+                if (sortedColumns.Contains("Solution Label")) 
+                {
+                    sortedColumns.Remove("Solution Label");
+                    sortedColumns.Insert(0, "Solution Label");
+                }
+
+                // Header
+                for (int i = 0; i < sortedColumns.Count; i++)
+                {
+                    ws.Cell(1, i + 1).Value = sortedColumns[i];
+                    ws.Cell(1, i + 1).Style.Font.Bold = true;
+                    ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+                }
+
+                // Data
+                for (int r = 0; r < allRows.Count; r++)
+                {
+                    var rowData = allRows[r];
+                    for (int c = 0; c < sortedColumns.Count; c++)
+                    {
+                        if (rowData.TryGetValue(sortedColumns[c], out var val) && val != null)
+                        {
+                             ws.Cell(r + 2, c + 1).Value = val.ToString();
+                        }
+                    }
+                }
+
+                ws.Columns().AdjustToContents();
+
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                return Result<byte[]>.Success(stream.ToArray());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to export raw Excel for project {ProjectId}", projectId);
+                return Result<byte[]>.Fail($"Failed to export raw Excel: {ex.Message}");
+            }
+        }
 
     #region Private Excel Sheet Helpers
 

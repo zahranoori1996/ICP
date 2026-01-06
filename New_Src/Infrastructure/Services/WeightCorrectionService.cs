@@ -44,6 +44,23 @@ public class WeightCorrectionService : BaseCorrectionService, IWeightCorrectionS
                         typeElement.GetString() != "Samp")
                         continue;
 
+                    decimal corrCon;
+                    if (root.TryGetProperty("Corr Con", out var corrConElement) &&
+                        corrConElement.ValueKind != JsonValueKind.Null)
+                    {
+                        if (corrConElement.ValueKind == JsonValueKind.Number)
+                            corrCon = corrConElement.GetDecimal();
+                        else if (corrConElement.ValueKind == JsonValueKind.String &&
+                                 decimal.TryParse(corrConElement.GetString(), out var parsedCorrCon))
+                            corrCon = parsedCorrCon;
+                        else
+                            continue;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
                     if (!root.TryGetProperty("Act Wgt", out var weightElement))
                         continue;
 
@@ -61,17 +78,6 @@ public class WeightCorrectionService : BaseCorrectionService, IWeightCorrectionS
 
                     if (weight < request.WeightMin || weight > request.WeightMax)
                     {
-                        decimal corrCon = 0m;
-                        if (root.TryGetProperty("Corr Con", out var corrConElement) &&
-                            corrConElement.ValueKind != JsonValueKind.Null)
-                        {
-                            if (corrConElement.ValueKind == JsonValueKind.Number)
-                                corrCon = corrConElement.GetDecimal();
-                            else if (corrConElement.ValueKind == JsonValueKind.String &&
-                                     decimal.TryParse(corrConElement.GetString(), out var parsedCorrCon))
-                                corrCon = parsedCorrCon;
-                        }
-
                         var solutionLabel = root.TryGetProperty("Solution Label", out var labelElement)
                             ? labelElement.GetString() ?? row.SampleId ?? "Unknown"
                             : row.SampleId ?? "Unknown";
@@ -141,6 +147,23 @@ public class WeightCorrectionService : BaseCorrectionService, IWeightCorrectionS
                         typeElement.GetString() != "Samp")
                         continue;
 
+                    decimal oldCorrCon;
+                    if (root.TryGetProperty("Corr Con", out var corrConElement) &&
+                        corrConElement.ValueKind != JsonValueKind.Null)
+                    {
+                        if (corrConElement.ValueKind == JsonValueKind.Number)
+                            oldCorrCon = corrConElement.GetDecimal();
+                        else if (corrConElement.ValueKind == JsonValueKind.String &&
+                                 decimal.TryParse(corrConElement.GetString(), out var parsedCorrCon))
+                            oldCorrCon = parsedCorrCon;
+                        else
+                            continue;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
                     if (!root.TryGetProperty("Act Wgt", out var weightElement))
                         continue;
 
@@ -156,15 +179,6 @@ public class WeightCorrectionService : BaseCorrectionService, IWeightCorrectionS
                     if (oldWeight == 0)
                         continue;
 
-                    decimal oldCorrCon = 0m;
-                    if (root.TryGetProperty("Corr Con", out var corrConElement) &&
-                        corrConElement.ValueKind != JsonValueKind.Null)
-                    {
-                        if (corrConElement.ValueKind == JsonValueKind.Number)
-                            oldCorrCon = corrConElement.GetDecimal();
-                        else
-                            decimal.TryParse(corrConElement.GetString(), out oldCorrCon);
-                    }
 
                     // ✅ Python math: newCorrCon = oldCorrCon * (newWeight / oldWeight)
                     var newCorrCon = oldCorrCon * (request.NewWeight / oldWeight);

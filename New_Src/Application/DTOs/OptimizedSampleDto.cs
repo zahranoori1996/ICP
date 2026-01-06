@@ -1,4 +1,4 @@
-﻿namespace Application.DTOs;
+namespace Application.DTOs;
 
 /// <summary>
 /// Represents a request to perform blank and scale optimization on project data.
@@ -10,7 +10,20 @@
 /// <param name="MaxIterations">The maximum number of iterations the optimization algorithm should perform.</param>
 /// <param name="PopulationSize">The size of the candidate population for the evolutionary algorithm.</param>
 /// <param name="UseMultiModel">Indicates whether to evaluate multiple models (e.g., A, B, C) and select the best one.</param>
+/// <param name="PreviewOnly">When true, calculates results without persisting changes.</param>
 /// <param name="Seed">An optional integer seed to ensure reproducible random number generation.</param>
+/// <param name="RangeLow">Absolute tolerance for |x| &lt; 10. Defaults to 2.0.</param>
+/// <param name="RangeMid">Percentage tolerance for 10 ≤ |x| &lt; 100. Defaults to 20%.</param>
+/// <param name="RangeHigh1">Percentage tolerance for 100 ≤ |x| &lt; 1000. Defaults to 10%.</param>
+/// <param name="RangeHigh2">Percentage tolerance for 1000 ≤ |x| &lt; 10000. Defaults to 8%.</param>
+/// <param name="RangeHigh3">Percentage tolerance for 10000 ≤ |x| &lt; 100000. Defaults to 5%.</param>
+/// <param name="RangeHigh4">Percentage tolerance for |x| ≥ 100000. Defaults to 3%.</param>
+/// <param name="ScaleRangeMin">Optional minimum value for scale application range.</param>
+/// <param name="ScaleRangeMax">Optional maximum value for scale application range.</param>
+/// <param name="ScaleAbove50Only">When true, only apply scale to values above 50.</param>
+/// <param name="CrmSelections">Optional CRM method selections keyed by CRM numeric id (e.g., "258").</param>
+/// <param name="IncludedCrmIds">Optional list of CRM numeric ids to include (e.g., "258").</param>
+/// <param name="ExcludedSolutionLabels">Optional list of solution labels to exclude from optimization.</param>
 public record BlankScaleOptimizationRequest(
     Guid ProjectId,
     List<string>? Elements = null,
@@ -19,7 +32,22 @@ public record BlankScaleOptimizationRequest(
     int MaxIterations = 100,
     int PopulationSize = 20,
     bool UseMultiModel = true,
-    int? Seed = null
+    bool PreviewOnly = false,
+    int? Seed = null,
+    // Acceptable Ranges (Python: calculate_dynamic_range)
+    decimal RangeLow = 2.0m,
+    decimal RangeMid = 20.0m,
+    decimal RangeHigh1 = 10.0m,
+    decimal RangeHigh2 = 8.0m,
+    decimal RangeHigh3 = 5.0m,
+    decimal RangeHigh4 = 3.0m,
+    // Scale Application Range (Python: scale_range_min/max)
+    decimal? ScaleRangeMin = null,
+    decimal? ScaleRangeMax = null,
+    bool ScaleAbove50Only = false,
+    Dictionary<string, string>? CrmSelections = null,
+    List<string>? IncludedCrmIds = null,
+    List<string>? ExcludedSolutionLabels = null
 );
 
 /// <summary>
@@ -46,7 +74,7 @@ public record BlankScaleOptimizationResult(
 /// Details the optimization parameters and results for a single chemical element.
 /// </summary>
 /// <param name="Element">The chemical symbol of the element.</param>
-/// <param name="OptimalBlank">The calculated blank value that yields the best results.</param>
+/// <param name="OptimalBlank">The effective blank value to subtract (base blank minus optimized adjustment).</param>
 /// <param name="OptimalScale">The calculated scale factor that yields the best results.</param>
 /// <param name="PassedBefore">The number of samples passing for this element before optimization.</param>
 /// <param name="PassedAfter">The number of samples passing for this element after optimization.</param>
@@ -93,7 +121,7 @@ public record OptimizedSampleDto(
 /// </summary>
 /// <param name="ProjectId">The unique identifier of the project.</param>
 /// <param name="Element">The chemical symbol of the element to adjust.</param>
-/// <param name="Blank">The specific blank value to apply.</param>
+/// <param name="Blank">The effective blank value to subtract.</param>
 /// <param name="Scale">The specific scale factor to apply.</param>
 public record ManualBlankScaleRequest(
     Guid ProjectId,
@@ -106,7 +134,7 @@ public record ManualBlankScaleRequest(
 /// Contains the result of a manual blank and scale adjustment operation.
 /// </summary>
 /// <param name="Element">The chemical symbol of the element corrected.</param>
-/// <param name="Blank">The blank value that was applied.</param>
+/// <param name="Blank">The effective blank value that was applied.</param>
 /// <param name="Scale">The scale factor that was applied.</param>
 /// <param name="PassedBefore">Pass count derived from the previous state.</param>
 /// <param name="PassedAfter">Pass count resulting from the new manual settings.</param>
@@ -175,7 +203,7 @@ public record ModelResult(
 );
 
 /// <summary>
-/// details the comparison between different models for a specific single element.
+/// Details the comparison between different models for a specific single element.
 /// </summary>
 /// <param name="Element">The chemical symbol of the element.</param>
 /// <param name="ModelA">The performance metrics for Model A.</param>

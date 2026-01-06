@@ -41,7 +41,6 @@ namespace WebUI.Pages
 
         // Account
         private string _currentUser = "";
-        private bool _isSaving = false;
 
         private MudForm _passwordForm = null!;
         private string _currentPassword = "";
@@ -140,7 +139,7 @@ namespace WebUI.Pages
                     Snackbar.Add(result.Message, Severity.Error);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Snackbar.Add("خطای غیرمنتظره رخ داد.", Severity.Error);
             }
@@ -152,9 +151,6 @@ namespace WebUI.Pages
         }
         private async Task SaveSettings()
         {
-            _isSaving = true;
-            StateHasChanged();
-
             try
             {
                 var settings = new
@@ -184,9 +180,9 @@ namespace WebUI.Pages
                 await JSRuntime.InvokeVoidAsync("saveToLocalStorage", "icp_settings", settings);
                 Snackbar.Add("Settings saved successfully", Severity.Success);
             }
-            finally
+            catch (Exception)
             {
-                _isSaving = false;
+                Snackbar.Add("???? ??? ????? ???? ???.", Severity.Error);
             }
         }
 

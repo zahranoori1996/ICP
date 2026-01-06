@@ -1,5 +1,9 @@
+using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Net.Http;
 
 namespace WebUI.Services;
 
@@ -27,6 +31,12 @@ public class ProjectListItemDto
 
     [JsonPropertyName("rawRowsCount")]
     public int RawRowsCount { get; set; }
+
+    [JsonPropertyName("device")]
+    public string? Device { get; set; }
+
+    [JsonPropertyName("fileType")]
+    public string? FileType { get; set; }
 }
 
 // DTO for loaded project (from GET /api/projects/{id})
@@ -46,6 +56,18 @@ public class ProjectInfoDto
     
     [JsonPropertyName("owner")]
     public string? Owner { get; set; }
+
+    [JsonPropertyName("latestStateJson")]
+    public string? LatestStateJson { get; set; }
+
+    [JsonPropertyName("device")]
+    public string? Device { get; set; }
+
+    [JsonPropertyName("fileType")]
+    public string? FileType { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 }
 
 public class ProjectDto
@@ -80,6 +102,15 @@ public class ProjectDto
 
     [JsonPropertyName("updatedAt")]
     public DateTime UpdatedAt { get; set; }
+
+    [JsonPropertyName("device")]
+    public string? Device { get; set; }
+
+    [JsonPropertyName("fileType")]
+    public string? FileType { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 
     // Helper properties for UI compatibility
     public Guid ProjectId => ResultProjectId ?? JobId;
@@ -199,7 +230,9 @@ public class ProjectService
                         TotalRows = p.RawRowsCount,
                         CreatedAt = p.CreatedAt,
                         UpdatedAt = p.LastModifiedAt,
-                        State = 2 // Completed
+                        State = 2, // Completed
+                        Device = p.Device,
+                        FileType = p.FileType
                     }).ToList();
 
                     var listResult = new ProjectListResult
@@ -228,7 +261,7 @@ public class ProjectService
     /// <summary>
     /// Get a single project by ID
     /// </summary>
-    public async Task<ServiceResult<ProjectInfoDto>> GetProjectAsync(Guid projectId)
+    public async Task<ServiceResult<ProjectInfoDto>> GetProjectAsync(Guid projectId, bool includeLatestState = false)
     {
         try
         {
@@ -244,6 +277,18 @@ public class ProjectService
 
                 if (result?.Succeeded == true && result.Data != null)
                 {
+                    if (includeLatestState)
+                    {
+                        var stateResult = await GetLatestProjectStateCompressedAsync(projectId);
+                        if (stateResult.Succeeded)
+                        {
+                            result.Data.LatestStateJson = stateResult.Data;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to load latest state for project {ProjectId}: {Message}", projectId, stateResult.Message);
+                        }
+                    }
                     return ServiceResult<ProjectInfoDto>.Success(result.Data);
                 }
 
@@ -256,6 +301,39 @@ public class ProjectService
         {
             _logger.LogError(ex, "Error loading project {ProjectId}", projectId);
             return ServiceResult<ProjectInfoDto>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    public async Task<ServiceResult<string?>> GetLatestProjectStateCompressedAsync(Guid projectId)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var response = await _httpClient.GetAsync($"projects/{projectId}/state/latest/compressed");
+            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            {
+                return ServiceResult<string?>.Success(null);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return ServiceResult<string?>.Fail($"Server error: {response.StatusCode}");
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            if (bytes.Length == 0)
+            {
+                return ServiceResult<string?>.Success(null);
+            }
+
+            var json = DecompressGzipToString(bytes);
+            return ServiceResult<string?>.Success(json);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading compressed state for project {ProjectId}", projectId);
+            return ServiceResult<string?>.Fail($"Error: {ex.Message}");
         }
     }
 
@@ -293,6 +371,49 @@ public class ProjectService
         }
     }
 
+    /// <summary>
+    /// Update project metadata on server
+    /// </summary>
+    public async Task<ServiceResult<bool>> UpdateProjectAsync(Guid projectId, string projectName, string? device, string? fileType, string? description)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var payload = new { projectName = projectName, device = device, fileType = fileType, description = description };
+            var json = JsonSerializer.Serialize(payload);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await _httpClient.PutAsync($"projects/{projectId}", content);
+            var respContent = await response.Content.ReadAsStringAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                return ServiceResult<bool>.Success(true);
+            }
+
+            if (string.IsNullOrWhiteSpace(respContent))
+            {
+                _logger.LogWarning("UpdateProject returned empty body. Status: {Status}", response.StatusCode);
+                return ServiceResult<bool>.Fail($"Server error: {response.StatusCode} (empty response body)");
+            }
+
+            try
+            {
+                var result = JsonSerializer.Deserialize<ApiResult<bool>>(respContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return ServiceResult<bool>.Fail(result?.Message ?? $"Failed to update project. Status: {response.StatusCode}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to deserialize UpdateProject response: {Content}", respContent);
+                return ServiceResult<bool>.Fail($"Server error: {response.StatusCode}. Response: {respContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating project {ProjectId}", projectId);
+            return ServiceResult<bool>.Fail($"Error: {ex.Message}");
+        }
+    }
+
     private void SetAuthHeader()
     {
         var token = _authService.GetAccessToken();
@@ -301,5 +422,13 @@ public class ProjectService
             _httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         }
+    }
+
+    private static string DecompressGzipToString(byte[] compressed)
+    {
+        using var input = new MemoryStream(compressed);
+        using var gzip = new GZipStream(input, CompressionMode.Decompress);
+        using var reader = new StreamReader(gzip);
+        return reader.ReadToEnd();
     }
 }

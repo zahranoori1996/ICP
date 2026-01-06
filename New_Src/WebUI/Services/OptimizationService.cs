@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -30,13 +31,120 @@ public class BlankScaleOptimizationRequest
     [JsonPropertyName("useMultiModel")]
     public bool UseMultiModel { get; set; } = true;
 
+    [JsonPropertyName("previewOnly")]
+    public bool PreviewOnly { get; set; } = false;
+
     [JsonPropertyName("seed")]
     public int? Seed { get; set; }
+
+    // Acceptable Ranges (Python: calculate_dynamic_range)
+    [JsonPropertyName("rangeLow")]
+    public decimal RangeLow { get; set; } = 2.0m;
+
+    [JsonPropertyName("rangeMid")]
+    public decimal RangeMid { get; set; } = 20.0m;
+
+    [JsonPropertyName("rangeHigh1")]
+    public decimal RangeHigh1 { get; set; } = 10.0m;
+
+    [JsonPropertyName("rangeHigh2")]
+    public decimal RangeHigh2 { get; set; } = 8.0m;
+
+    [JsonPropertyName("rangeHigh3")]
+    public decimal RangeHigh3 { get; set; } = 5.0m;
+
+    [JsonPropertyName("rangeHigh4")]
+    public decimal RangeHigh4 { get; set; } = 3.0m;
+
+    // Scale Application Range
+    [JsonPropertyName("scaleRangeMin")]
+    public decimal? ScaleRangeMin { get; set; }
+
+    [JsonPropertyName("scaleRangeMax")]
+    public decimal? ScaleRangeMax { get; set; }
+
+    [JsonPropertyName("scaleAbove50Only")]
+    public bool ScaleAbove50Only { get; set; } = false;
+
+    [JsonPropertyName("crmSelections")]
+    public Dictionary<string, string>? CrmSelections { get; set; }
+
+    [JsonPropertyName("includedCrmIds")]
+    public List<string>? IncludedCrmIds { get; set; }
+
+    [JsonPropertyName("excludedSolutionLabels")]
+    public List<string>? ExcludedSolutionLabels { get; set; }
+}
+
+public class CrmMethodOptionDto
+{
+    [JsonPropertyName("crmId")]
+    public string CrmId { get; set; } = "";
+
+    [JsonPropertyName("methods")]
+    public List<string> Methods { get; set; } = new();
+
+    [JsonPropertyName("defaultMethod")]
+    public string? DefaultMethod { get; set; }
+}
+
+public class CrmOptionsResult
+{
+    [JsonPropertyName("items")]
+    public List<CrmMethodOptionDto> Items { get; set; } = new();
+}
+
+public class CrmSelectionRowDto
+{
+    [JsonPropertyName("solutionLabel")]
+    public string SolutionLabel { get; set; } = "";
+
+    [JsonPropertyName("rowIndex")]
+    public int RowIndex { get; set; }
+
+    [JsonPropertyName("crmId")]
+    public string CrmId { get; set; } = "";
+
+    [JsonPropertyName("preferredOptions")]
+    public List<string> PreferredOptions { get; set; } = new();
+
+    [JsonPropertyName("allOptions")]
+    public List<string> AllOptions { get; set; } = new();
+
+    [JsonPropertyName("selectedOption")]
+    public string? SelectedOption { get; set; }
+}
+
+public class CrmSelectionOptionsResult
+{
+    [JsonPropertyName("items")]
+    public List<CrmSelectionRowDto> Items { get; set; } = new();
+}
+
+public class CrmSelectionItemDto
+{
+    [JsonPropertyName("solutionLabel")]
+    public string SolutionLabel { get; set; } = "";
+
+    [JsonPropertyName("rowIndex")]
+    public int RowIndex { get; set; }
+
+    [JsonPropertyName("selectedCrmKey")]
+    public string SelectedCrmKey { get; set; } = "";
+}
+
+public class CrmSelectionSaveRequest
+{
+    [JsonPropertyName("projectId")]
+    public Guid ProjectId { get; set; }
+
+    [JsonPropertyName("selections")]
+    public List<CrmSelectionItemDto> Selections { get; set; } = new();
 }
 
 public class BlankScaleOptimizationResult
 {
-    [JsonPropertyName("totalRmSamples")]
+    [JsonPropertyName("totalSamples")]
     public int TotalRmSamples { get; set; }
 
     [JsonPropertyName("passedBefore")]
@@ -63,10 +171,10 @@ public class ElementOptimization
     [JsonPropertyName("element")]
     public string Element { get; set; } = "";
 
-    [JsonPropertyName("blank")]
+    [JsonPropertyName("optimalBlank")]
     public decimal Blank { get; set; }
 
-    [JsonPropertyName("scale")]
+    [JsonPropertyName("optimalScale")]
     public decimal Scale { get; set; }
 
     [JsonPropertyName("passedBefore")]
@@ -93,37 +201,37 @@ public class OptimizedSampleDto
     [JsonPropertyName("crmId")]
     public string CrmId { get; set; } = "";
 
-    [JsonPropertyName("element")]
-    public string Element { get; set; } = "";
+    [JsonPropertyName("originalValues")]
+    public Dictionary<string, decimal?> OriginalValues { get; set; } = new();
 
-    [JsonPropertyName("originalValue")]
-    public decimal OriginalValue { get; set; }
+    [JsonPropertyName("crmValues")]
+    public Dictionary<string, decimal?> CrmValues { get; set; } = new();
 
-    [JsonPropertyName("optimizedValue")]
-    public decimal OptimizedValue { get; set; }
+    [JsonPropertyName("optimizedValues")]
+    public Dictionary<string, decimal?> OptimizedValues { get; set; } = new();
 
-    [JsonPropertyName("crmValue")]
-    public decimal CrmValue { get; set; }
+    [JsonPropertyName("diffPercentBefore")]
+    public Dictionary<string, decimal> DiffPercentBefore { get; set; } = new();
 
-    [JsonPropertyName("originalDiff")]
-    public decimal OriginalDiff { get; set; }
+    [JsonPropertyName("diffPercentAfter")]
+    public Dictionary<string, decimal> DiffPercentAfter { get; set; } = new();
 
-    [JsonPropertyName("optimizedDiff")]
-    public decimal OptimizedDiff { get; set; }
+    [JsonPropertyName("passStatusBefore")]
+    public Dictionary<string, bool> PassStatusBefore { get; set; } = new();
 
-    [JsonPropertyName("isPassed")]
-    public bool IsPassed { get; set; }
+    [JsonPropertyName("passStatusAfter")]
+    public Dictionary<string, bool> PassStatusAfter { get; set; } = new();
 }
 
 public class MultiModelSummary
 {
-    [JsonPropertyName("modelACounts")]
+    [JsonPropertyName("elementsOptimizedWithModelA")]
     public int ModelACounts { get; set; }
 
-    [JsonPropertyName("modelBCounts")]
+    [JsonPropertyName("elementsOptimizedWithModelB")]
     public int ModelBCounts { get; set; }
 
-    [JsonPropertyName("modelCCounts")]
+    [JsonPropertyName("elementsOptimizedWithModelC")]
     public int ModelCCounts { get; set; }
 
     [JsonPropertyName("mostUsedModel")]
@@ -131,6 +239,27 @@ public class MultiModelSummary
 
     [JsonPropertyName("summary")]
     public string Summary { get; set; } = "";
+}
+
+public class ManualBlankScaleResult
+{
+    [JsonPropertyName("element")]
+    public string Element { get; set; } = "";
+
+    [JsonPropertyName("blank")]
+    public decimal Blank { get; set; }
+
+    [JsonPropertyName("scale")]
+    public decimal Scale { get; set; }
+
+    [JsonPropertyName("passedBefore")]
+    public int PassedBefore { get; set; }
+
+    [JsonPropertyName("passedAfter")]
+    public int PassedAfter { get; set; }
+
+    [JsonPropertyName("optimizedData")]
+    public List<OptimizedSampleDto> OptimizedData { get; set; } = new();
 }
 
 // ============================================
@@ -146,7 +275,7 @@ public class OptimizationService
     public OptimizationService(IHttpClientFactory clientFactory, ILogger<OptimizationService> logger, AuthService authService)
     {
         _httpClient = clientFactory.CreateClient("Api");
-        //_httpClient.Timeout = TimeSpan.FromMinutes(10);
+        _httpClient.Timeout = TimeSpan.FromMinutes(10);
         _logger = logger;
         _authService = authService;
     }
@@ -182,6 +311,96 @@ public class OptimizationService
         {
             _logger.LogError(ex, "Error running optimization");
             return ServiceResult<BlankScaleOptimizationResult>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    public async Task<ServiceResult<CrmOptionsResult>> GetCrmOptionsAsync(Guid projectId)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var response = await _httpClient.GetAsync($"optimization/{projectId}/crm-options");
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = JsonSerializer.Deserialize<ApiResult<CrmOptionsResult>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (result?.Succeeded == true && result.Data != null)
+                    return ServiceResult<CrmOptionsResult>.Success(result.Data);
+
+                return ServiceResult<CrmOptionsResult>.Fail(result?.Message ?? "Failed to load CRM options");
+            }
+
+            return ServiceResult<CrmOptionsResult>.Fail($"Server error: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading CRM options");
+            return ServiceResult<CrmOptionsResult>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    public async Task<ServiceResult<CrmSelectionOptionsResult>> GetCrmSelectionOptionsAsync(Guid projectId)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var response = await _httpClient.GetAsync($"optimization/{projectId}/crm-selection-options");
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = JsonSerializer.Deserialize<ApiResult<CrmSelectionOptionsResult>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (result?.Succeeded == true && result.Data != null)
+                    return ServiceResult<CrmSelectionOptionsResult>.Success(result.Data);
+
+                return ServiceResult<CrmSelectionOptionsResult>.Fail(result?.Message ?? "Failed to load CRM selections");
+            }
+
+            return ServiceResult<CrmSelectionOptionsResult>.Fail($"Server error: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading CRM selections");
+            return ServiceResult<CrmSelectionOptionsResult>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    public async Task<ServiceResult<bool>> SaveCrmSelectionsAsync(CrmSelectionSaveRequest request)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var json = JsonSerializer.Serialize(request);
+            var response = await _httpClient.PostAsync(
+                $"optimization/{request.ProjectId}/crm-selections",
+                new StringContent(json, Encoding.UTF8, "application/json"));
+
+            var content = await response.Content.ReadAsStringAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                var result = JsonSerializer.Deserialize<ApiResult<bool>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (result?.Succeeded == true)
+                    return ServiceResult<bool>.Success(true);
+
+                return ServiceResult<bool>.Fail(result?.Message ?? "Failed to save CRM selections");
+            }
+
+            return ServiceResult<bool>.Fail($"Server error: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving CRM selections");
+            return ServiceResult<bool>.Fail($"Error: {ex.Message}");
         }
     }
 
@@ -250,6 +469,74 @@ public class OptimizationService
         {
             _logger.LogError(ex, "Error previewing optimization");
             return ServiceResult<BlankScaleOptimizationResult>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Preview manual Blank & Scale values (ManualBlankScaleResult)
+    /// </summary>
+    public async Task<ServiceResult<ManualBlankScaleResult>> PreviewManualDetailsAsync(
+        Guid projectId, string element, decimal blank, decimal scale)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var request = new { projectId, element, blank, scale };
+            var response = await _httpClient.PostAsJsonAsync("optimization/preview", request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = JsonSerializer.Deserialize<ApiResult<ManualBlankScaleResult>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (result?.Succeeded == true && result.Data != null)
+                    return ServiceResult<ManualBlankScaleResult>.Success(result.Data);
+
+                return ServiceResult<ManualBlankScaleResult>.Fail(result?.Message ?? "Failed");
+            }
+
+            return ServiceResult<ManualBlankScaleResult>.Fail($"Server error: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error previewing manual optimization");
+            return ServiceResult<ManualBlankScaleResult>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Apply manual Blank & Scale values
+    /// </summary>
+    public async Task<ServiceResult<ManualBlankScaleResult>> ApplyManualAsync(
+        Guid projectId, string element, decimal blank, decimal scale)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var request = new { projectId, element, blank, scale };
+            var response = await _httpClient.PostAsJsonAsync("optimization/apply", request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = JsonSerializer.Deserialize<ApiResult<ManualBlankScaleResult>>(content,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (result?.Succeeded == true && result.Data != null)
+                    return ServiceResult<ManualBlankScaleResult>.Success(result.Data);
+
+                return ServiceResult<ManualBlankScaleResult>.Fail(result?.Message ?? "Failed");
+            }
+
+            return ServiceResult<ManualBlankScaleResult>.Fail($"Server error: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying manual optimization");
+            return ServiceResult<ManualBlankScaleResult>.Fail($"Error: {ex.Message}");
         }
     }
 

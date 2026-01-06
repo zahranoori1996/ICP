@@ -112,19 +112,28 @@ public class CrmService
         string? search = null,
         bool? ourOreasOnly = null,
         int page = 1,
-        int pageSize = 50)
+        int pageSize = 0)
     {
         try
         {
             SetAuthHeader();
 
-            var url = $"crm?page={page}&pageSize={pageSize}";
+            var query = new List<string>();
+            if (pageSize > 0)
+            {
+                query.Add($"page={page}");
+                query.Add($"pageSize={pageSize}");
+            }
             if (!string.IsNullOrEmpty(analysisMethod))
-                url += $"&analysisMethod={Uri.EscapeDataString(analysisMethod)}";
+                query.Add($"analysisMethod={Uri.EscapeDataString(analysisMethod)}");
             if (!string.IsNullOrEmpty(search))
-                url += $"&searchText={Uri.EscapeDataString(search)}";
+                query.Add($"searchText={Uri.EscapeDataString(search)}");
             if (ourOreasOnly == true)
-                url += "&ourOreasOnly=true";
+                query.Add("ourOreasOnly=true");
+
+            var url = query.Count > 0
+                ? $"crm?{string.Join("&", query)}"
+                : "crm";
 
             var response = await _httpClient.GetAsync(url);
             var content = await response.Content.ReadAsStringAsync();

@@ -77,6 +77,7 @@ public class ReportService
     public ReportService(IHttpClientFactory clientFactory, ILogger<ReportService> logger, AuthService authService)
     {
         _httpClient = clientFactory.CreateClient("Api");
+        _httpClient.Timeout = TimeSpan.FromMinutes(10);
         _logger = logger;
         _authService = authService;
     }
@@ -112,6 +113,32 @@ public class ReportService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting to Excel");
+            return ServiceResult<byte[]>.Fail($"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Export Raw Excel
+    /// </summary>
+    public async Task<ServiceResult<byte[]>> ExportRawExcelAsync(Guid projectId)
+    {
+        try
+        {
+            SetAuthHeader();
+
+            var response = await _httpClient.GetAsync($"reports/{projectId}/excel/raw");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                return ServiceResult<byte[]>.Success(bytes);
+            }
+
+            return ServiceResult<byte[]>.Fail($"Export failed: {response.StatusCode}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting to Raw Excel");
             return ServiceResult<byte[]>.Fail($"Error: {ex.Message}");
         }
     }

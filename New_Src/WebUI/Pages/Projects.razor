@@ -3,10 +3,17 @@
 @using System.Globalization
 @inject ProjectService ProjectService
 @inject NavigationManager NavManager
+@inject AuthService AuthService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
 <PageTitle>ICP - Projects</PageTitle>
+
+@{
+    var user = AuthService.GetCurrentUser();
+    var isAuthenticated = user?.IsAuthenticated ?? false;
+
+}
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
@@ -116,18 +123,30 @@
                                                Color="Color.Info"
                                                OnClick="@(() => OpenVersionHistory(context))" />
                             </MudTooltip>
-                            <MudTooltip Text="Process Data">
-                                <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
-                                               Size="Size.Small"
-                                               Color="Color.Secondary"
-                                               OnClick="@(() => ProcessProject(context))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Delete Project">
-                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                               Size="Size.Small"
-                                               Color="Color.Error"
-                                               OnClick="@(() => DeleteProject(context))" />
-                            </MudTooltip>
+                            @if (user?.Position?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false)
+                            {
+                                <MudTooltip Text="Process Data">
+                                    <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
+                                                   Size="Size.Small"
+                                                   Color="Color.Secondary"
+                                                   OnClick="@(() => ProcessProject(context))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete Project">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="@(() => DeleteProject(context))" />
+                                </MudTooltip>
+                            }
+                            @if (user?.Position?.Equals("Analyst", StringComparison.OrdinalIgnoreCase) ?? false)
+                            {
+                                <MudTooltip Text="Process Data">
+                                    <MudIconButton Icon="@Icons.Material.Filled.PlayArrow"
+                                                   Size="Size.Small"
+                                                   Color="Color.Secondary"
+                                                   OnClick="@(() => ProcessProject(context))" />
+                                </MudTooltip>
+                            }
                         </MudButtonGroup>
                     </MudTd>
                 </RowTemplate>

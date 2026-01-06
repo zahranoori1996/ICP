@@ -15,14 +15,14 @@ public interface ICrmService
     /// <param name="searchText">A text string to search within CRM IDs or types (optional).</param>
     /// <param name="ourOreasOnly">If true, restricts results to the "Our Oreas" internal subset.</param>
     /// <param name="page">The page number to retrieve.</param>
-    /// <param name="pageSize">The number of records per page.</param>
+    /// <param name="pageSize">The number of records per page. Use 0 to return all records.</param>
     /// <returns>A result containing a paginated list of <see cref="CrmListItemDto"/>.</returns>
     Task<Result<PaginatedResult<CrmListItemDto>>> GetCrmListAsync(
         string? analysisMethod = null,
         string? searchText = null,
         bool? ourOreasOnly = null,
         int page = 1,
-        int pageSize = 50);
+        int pageSize = 0);
 
     /// <summary>
     /// Retrieves the details of a specific CRM by its unique internal database identifier.

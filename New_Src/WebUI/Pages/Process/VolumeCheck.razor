@@ -1,11 +1,16 @@
 ﻿@page "/process/volume"
 @using WebUI.Services
+@inject AuthService AuthService
 @inject ProjectService ProjectService
 @inject CorrectionService CorrectionService
 @inject ISnackbar Snackbar
 
 <PageTitle>ICP - Volume Check</PageTitle>
+@{
+    var user = AuthService.GetCurrentUser();
+    var isAuthenticated = user?.IsAuthenticated ?? false;
 
+}
 <NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isApplying" />
 
 @* Loading Overlay *@
@@ -112,8 +117,7 @@ justify-space-between align-center">
                                    FullWidth="true"
                                    StartIcon="@Icons.Material.Filled.Build"
                                    OnClick="ApplyCorrection"
-                                   Disabled="@(!_selectedSamples.Any() ||
-                                                                      _isApplying)">
+                                   Disabled="@(!_selectedSamples.Any() || _isApplying|| (user?.Position?.Equals("Viewer", StringComparison.OrdinalIgnoreCase) ?? false))">
                     @if (_isApplying)
                             {
                                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />

@@ -30,6 +30,106 @@ namespace WebUI.Pages
         private int _totalCount = 0;
         private int _totalPages => _totalCount == 0 ? 1 : (int)Math.Ceiling((double)_totalCount / _pageSize);
 
+        // متغیرهای جدید برای مدیریت پاپ‌آپ متدها
+        private bool _isMethodPopoverOpen;
+        private string _methodSearchText = "";
+        private HashSet<string> _selectedMethods = new(); // لیست متدهای انتخاب شده نهایی
+        private HashSet<string> _tempSelectedMethods = new(); // لیست موقت هنگام باز بودن پاپ‌آپ
+
+        // متن نمایشی داخل اینپوت
+        private string _methodDisplayValue => _selectedMethods.Any()
+            ? $"{_selectedMethods.Count} selected" // یا string.Join(", ", _selectedMethods)
+            : "All Methods";
+
+        // 1. باز کردن پاپ‌آپ
+        private void OpenMethodFilter()
+        {
+            _isMethodPopoverOpen = true;
+            _methodSearchText = "";
+            // کپی کردن انتخاب‌های فعلی به لیست موقت
+            _tempSelectedMethods = new HashSet<string>(_selectedMethods);
+        }
+
+        // بستن پاپ‌آپ
+        private void CloseMethodFilter()
+        {
+            _isMethodPopoverOpen = false;
+        }
+
+        // 2. انتخاب همه
+        private void SelectAllMethods()
+        {
+            // فیلتر کردن بر اساس سرچ اگر متنی جستجو شده باشد
+            var visibleMethods = _analysisMethods
+                .Where(m => string.IsNullOrEmpty(_methodSearchText) || m.Contains(_methodSearchText, StringComparison.OrdinalIgnoreCase));
+
+            foreach (var method in visibleMethods)
+            {
+                _tempSelectedMethods.Add(method);
+            }
+        }
+
+        // 3. هیچکدام (Deselect All)
+        private void DeselectAllMethods()
+        {
+            // فقط آنهایی که در جستجو دیده می‌شوند یا کل لیست (بسته به نیاز)
+            // اینجا کل لیست را پاک میکنیم طبق استاندارد اکسل
+            _tempSelectedMethods.Clear();
+        }
+
+        // 4. دکمه کنسل
+        private void CancelMethodFilter()
+        {
+            _isMethodPopoverOpen = false;
+            // هیچ تغییری در _selectedMethods اصلی نمی‌دهیم
+        }
+
+        // 5. دکمه تایید (OK)
+        private async Task ApplyMethodFilter()
+        {
+            _selectedMethods = new HashSet<string>(_tempSelectedMethods);
+            _isMethodPopoverOpen = false;
+
+            // فراخوانی مجدد دیتا یا اعمال فیلتر روی لیست موجود
+            // اگر فیلتر سمت سرور است:
+            await LoadCrmData();
+
+            // اگر فیلتر سمت کلاینت است (مثل کد فعلی شما):
+            // ApplyFilters(); 
+        }
+
+        // تغییر وضعیت چک‌باکس تکی
+        private void ToggleMethodSelection(string method, bool? isChecked)
+        {
+            if (isChecked == true)
+                _tempSelectedMethods.Add(method);
+            else
+                _tempSelectedMethods.Remove(method);
+        }
+
+        // *مهم*: بروزرسانی متد ApplyFilters برای پشتیبانی از چند انتخابی
+        private void ApplyFilters()
+        {
+            var filtered = _crmList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_searchText))
+            {
+                filtered = filtered.Where(c =>
+                    c.CrmId.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // تغییر منطق از == به Contains برای پشتیبانی از چند انتخاب
+            if (_selectedMethods.Any())
+            {
+                filtered = filtered.Where(c => c.AnalysisMethod != null && _selectedMethods.Contains(c.AnalysisMethod));
+            }
+
+            _filteredCrmList = filtered.ToList();
+
+            _totalCount = _filteredCrmList.Count;
+            _currentPage = 1;
+            UpdatePagedRows();
+        }
         protected override async Task OnInitializedAsync()
         {
             await LoadAnalysisMethods();
@@ -54,7 +154,9 @@ namespace WebUI.Pages
             {
                 var result = await CrmService.GetCrmListAsync(
                     analysisMethod: _selectedMethod,
-                    search: _searchText);
+                    search: _searchText,
+                    page: 1,
+                    pageSize: 0);
 
                 if (result.Succeeded && result.Data != null)
                 {
@@ -79,28 +181,28 @@ namespace WebUI.Pages
             await LoadCrmData();
         }
 
-        private void ApplyFilters()
-        {
-            var filtered = _crmList.AsEnumerable();
+        //private void ApplyFilters()
+        //{
+        //    var filtered = _crmList.AsEnumerable();
 
-            if (!string.IsNullOrWhiteSpace(_searchText))
-            {
-                filtered = filtered.Where(c =>
-                    c.CrmId.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
-            }
+        //    if (!string.IsNullOrWhiteSpace(_searchText))
+        //    {
+        //        filtered = filtered.Where(c =>
+        //            c.CrmId.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+        //    }
 
-            if (!string.IsNullOrWhiteSpace(_selectedMethod))
-            {
-                filtered = filtered.Where(c => c.AnalysisMethod == _selectedMethod);
-            }
+        //    if (!string.IsNullOrWhiteSpace(_selectedMethod))
+        //    {
+        //        filtered = filtered.Where(c => c.AnalysisMethod == _selectedMethod);
+        //    }
 
-            _filteredCrmList = filtered.ToList();
+        //    _filteredCrmList = filtered.ToList();
 
-            // ✅ آپدیت لاجیک پیجینیشن بعد از فیلتر
-            _totalCount = _filteredCrmList.Count;
-            _currentPage = 1; // بازگشت به صفحه اول
-            UpdatePagedRows();
-        }
+        //    // ✅ آپدیت لاجیک پیجینیشن بعد از فیلتر
+        //    _totalCount = _filteredCrmList.Count;
+        //    _currentPage = 1; // بازگشت به صفحه اول
+        //    UpdatePagedRows();
+        //}
 
         // ✅ متدهای جدید برای پیجینیشن (دقیقاً کپی شده از WeightCheck)
         private void UpdatePagedRows()

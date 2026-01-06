@@ -59,7 +59,10 @@ public record CrmDiffRequest(
     Guid ProjectId,
     decimal MinDiffPercent = -12m,
     decimal MaxDiffPercent = 12m,
-    List<string>? CrmPatterns = null
+    List<string>? CrmPatterns = null,
+    bool UseInt = false,
+    bool UseOxide = false,
+    int DecimalPlaces = 1
 );
 
 /// <summary>

@@ -1,6 +1,8 @@
-﻿using Application.Services; // احتمالا به این فضای نام هم نیاز دارید
+﻿using Application.Interface;
+using Application.Services;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
-using WebUI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,34 +27,73 @@ builder.Services.AddMudServices(config =>
 });
 
 // ============================================
-// 3. HttpClient for API Connection
+// 3. Database Connection (حیاتی برای رفع خطاها)
 // ============================================
-// خواندن آدرس API از appsettings.json
-var apiBaseUrl = builder.Configuration.GetValue<string>("ApiSettings:BaseUrl") ?? "http://192.168.0.103:5000/api/";
+// اطمینان حاصل کنید که کانکشن استرینگ در appsettings.json موجود است
+//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//if (string.IsNullOrEmpty(connectionString))
+//{
+//    // اگر فایل appsettings.json خوانده نشود یا مقدار خالی باشد، اینجا برنامه متوقف می‌شود و دلیل را می‌گوید
+//    throw new InvalidOperationException("Connection string 'DefaultConnection' not found. Please check appsettings.json.");
+//}
 
+var connectionString = "Data Source=192.168.0.13;Initial Catalog=ICP;Persist Security Info=True;User ID=sa;Password=AliReza23280;MultipleActiveResultSets=False;TrustServerCertificate=True";
+
+// بررسی می‌کنیم که خالی نباشد (که الان قطعا نیست)
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection String is Empty!");
+}
+
+
+
+
+// اگر از SQL Server استفاده می‌کنید:
+builder.Services.AddDbContext<IsatisDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// ============================================
+// 4. Register Infrastructure Services
+// ============================================
+
+builder.Services.AddScoped<IProjectPersistenceService, Infrastructure.Services.ProjectPersistenceService>();
+
+
+// ============================================
+// 5. Application Services (Main Fixes)
+// ============================================
+
+builder.Services.AddScoped<WebUI.Services.AuthService>();
+
+// ثبت سرویس‌ها با الگوی: <اینترفیس, پیاده‌سازی>
+builder.Services.AddScoped<IImportService, Infrastructure.Services.ImportService>();
+builder.Services.AddScoped<IUserManagementService, Infrastructure.Services.UserManagementService>();
+builder.Services.AddScoped<ICrmService, Infrastructure.Services.CrmService>();
+builder.Services.AddScoped<IPivotService, Infrastructure.Services.PivotService>();
+builder.Services.AddScoped<IReportService, Infrastructure.Services.ReportService>();
+builder.Services.AddScoped<IOptimizationService, Infrastructure.Services.OptimizationService>();
+builder.Services.AddScoped<IVersionService, Infrastructure.Services.VersionService>();
+builder.Services.AddScoped<Application.Services.IRmCheckService, Infrastructure.Services.RmCheckService>();
+
+builder.Services.AddScoped<WebUI.Services.ProjectService>();
+builder.Services.AddScoped<WebUI.Services.CorrectionService>();
+builder.Services.AddScoped<WebUI.Services.DriftService>();
+builder.Services.AddScoped<WebUI.Services.PivotService>();
+builder.Services.AddScoped<WebUI.Services.CrmService>();
+builder.Services.AddScoped<WebUI.Services.ReportService>();
+builder.Services.AddScoped<WebUI.Services.OptimizationService>();
+builder.Services.AddScoped<WebUI.Services.DashboardService>();
+builder.Services.AddScoped<WebUI.Services.UserManagementService>();
+
+// ============================================
+// 6. HttpClient (Optional / Context dependent)
+// ============================================
+var apiBaseUrl = builder.Configuration.GetValue<string>("ApiSettings:BaseUrl") ?? "http://192.168.0.103:5000/api/";
 builder.Services.AddHttpClient("Api", client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
     client.DefaultRequestHeaders.Add("Accept", "application/json");
 });
-
-// ============================================
-// 4. Application Services
-// ============================================
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<UserManagementService>();
-builder.Services.AddScoped<ImportService>();
-builder.Services.AddScoped<ProjectService>();
-builder.Services.AddScoped<PivotService>();
-builder.Services.AddScoped<CrmService>();
-builder.Services.AddScoped<CorrectionService>();
-builder.Services.AddScoped<DriftService>();
-builder.Services.AddScoped<ReportService>();
-builder.Services.AddScoped<OptimizationService>();
-
-// ✅✅✅ خط زیر اضافه شد تا مشکل Version History حل شود:
-builder.Services.AddScoped<IVersionService, VersionService>();
-
 
 // ============================================
 // Build Application
@@ -69,8 +110,11 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios.
+    app.UseHsts();
 }
 
+app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 
@@ -81,6 +125,6 @@ app.MapFallbackToPage("/_Host");
 // Log startup info
 // ============================================
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("WebUI started.  API Base URL: {ApiUrl}", apiBaseUrl);
+logger.LogInformation("WebUI started. API Base URL: {ApiUrl}", apiBaseUrl);
 
 app.Run();

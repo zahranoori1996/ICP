@@ -78,7 +78,10 @@ public record AdvancedImportRequest(
     Dictionary<string, string>? ColumnMappings = null,
     bool SkipLastRow = true,
     bool AutoDetectType = true,
-    string? DefaultType = "Samp"
+    string? DefaultType = "Samp",
+    string? Device = null,
+    string? FileType = null,
+    string? Description = null
 );
 
 /// <summary>
@@ -179,3 +182,11 @@ public record FilePreviewResult(
     List<string> SuggestedColumnMappings,
     string? Message
 );
+public class AnalysisPreviewResult
+{
+    public List<string> Contracts { get; set; } = new();
+    public List<string> CRMs { get; set; } = new();
+    public List<string> Blanks { get; set; } = new();
+    public string Device { get; set; } = "Unknown";
+    public string FileType { get; set; } = "Unknown";
+}

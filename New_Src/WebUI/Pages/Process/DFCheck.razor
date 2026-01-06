@@ -1,11 +1,17 @@
 ﻿@page "/process/df"
 @using WebUI.Services
+@inject AuthService AuthService
 @inject ProjectService ProjectService
 @inject CorrectionService CorrectionService
 @inject PivotService PivotService
 @inject ISnackbar Snackbar
 
 <PageTitle>ICP - DF Check</PageTitle>
+@{
+    var user = AuthService.GetCurrentUser();
+    var isAuthenticated = user?.IsAuthenticated ?? false;
+
+}
 <NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
 
 @* Loading Overlay *@
@@ -97,7 +103,7 @@
                                    FullWidth="true"
                                    StartIcon="@Icons.Material.Filled.AutoFixHigh"
                                    OnClick="ApplyCorrection"
-                                   Disabled="_isLoading || !_badDfSamples.Any()">
+                                   Disabled="@(_isLoading || !_badDfSamples.Any() || (user?.Position?.Equals("Viewer", StringComparison.OrdinalIgnoreCase) ?? false))"> 
                             Apply Correction
                         </MudButton>
                     }

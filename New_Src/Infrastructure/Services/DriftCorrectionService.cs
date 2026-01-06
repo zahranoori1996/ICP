@@ -191,8 +191,10 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
         try
         {
             Project? project = null;
+            bool persistChanges = applyToDatabase && !request.PreviewOnly;
+            bool computeCorrections = applyToDatabase || request.PreviewOnly;
 
-            if (applyToDatabase)
+            if (persistChanges)
             {
                 project = await _db.Projects.FirstOrDefaultAsync(p => p.ProjectId == request.ProjectId);
                 if (project == null)
@@ -201,7 +203,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
                 await SaveUndoStateAsync(request.ProjectId, $"DriftCorrection({request.Method})");
             }
 
-            var processed = await LoadAndProcessDataAsync(request.ProjectId, tracking: applyToDatabase);
+            var processed = await LoadAndProcessDataAsync(request.ProjectId, tracking: persistChanges);
             if (processed.PivotRows.Count == 0)
                 return Result<DriftCorrectionResult>.Fail("No data found.");
 
@@ -275,7 +277,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
             }
 
             // ✅ ANALYZE MODE: do NOT generate correctedData / correctedSamples (Python parity)
-            if (!applyToDatabase)
+            if (!computeCorrections)
             {
                 var analyzeResult = new DriftCorrectionResult(
                     TotalSamples: processed.PivotRows.Count,
@@ -335,7 +337,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
             }
 
             int savedCount = 0;
-            if (allCorrectionsForDb.Count > 0)
+            if (persistChanges && allCorrectionsForDb.Count > 0)
             {
                 savedCount = await SaveCorrectionsToDatabaseAsync(processed.RawRows, allCorrectionsForDb, elements);
                 project!.LastModifiedAt = DateTime.UtcNow;
@@ -377,7 +379,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
 
             var result = new DriftCorrectionResult(
                 TotalSamples: processed.PivotRows.Count,
-                CorrectedSamples: savedCount,
+                CorrectedSamples: persistChanges ? savedCount : correctedIntensities.Count,
                 SegmentsFound: segments.Count,
                 Segments: driftSegments,
                 ElementDrifts: elementDrifts,
@@ -536,7 +538,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
             return new List<PivotRow>();
 
         // Group by Solution Label preserving original order.
-        var groups = new Dictionary<string, List<RawDataItem>>(StringComparer.OrdinalIgnoreCase);
+        var groups = new Dictionary<string, List<RawDataItem>>(StringComparer.Ordinal);
         foreach (var item in ordered)
         {
             if (!groups.TryGetValue(item.SolutionLabel, out var list))
@@ -548,10 +550,10 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
         }
 
         // Compute per-label group sizes using Python's gcd logic.
-        var groupSizes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var groupSizes = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var kv in groups)
         {
-            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var item in kv.Value)
             {
                 counts[item.Element] = counts.TryGetValue(item.Element, out var c) ? c + 1 : 1;
@@ -649,7 +651,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
         else
         {
             // Assign uid per (label, element) occurrence index (Python _uid).
-            var uidMap = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
+            var uidMap = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
             foreach (var item in ordered)
             {
                 if (!uidMap.TryGetValue(item.SolutionLabel, out var elemMap))
@@ -696,10 +698,10 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
     private sealed class BlockLabelComparer : IEqualityComparer<(int BlockId, string Label)>
     {
         public bool Equals((int BlockId, string Label) x, (int BlockId, string Label) y)
-            => x.BlockId == y.BlockId && string.Equals(x.Label, y.Label, StringComparison.OrdinalIgnoreCase);
+            => x.BlockId == y.BlockId && string.Equals(x.Label, y.Label, StringComparison.Ordinal);
 
         public int GetHashCode((int BlockId, string Label) obj)
-            => HashCode.Combine(obj.BlockId, StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Label ?? string.Empty));
+            => HashCode.Combine(obj.BlockId, StringComparer.Ordinal.GetHashCode(obj.Label ?? string.Empty));
     }
 
     private sealed class LabelGroupComparer : IEqualityComparer<(string Label, int GroupId)>
@@ -707,10 +709,10 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
         public static readonly LabelGroupComparer Instance = new();
 
         public bool Equals((string Label, int GroupId) x, (string Label, int GroupId) y)
-            => x.GroupId == y.GroupId && string.Equals(x.Label, y.Label, StringComparison.OrdinalIgnoreCase);
+            => x.GroupId == y.GroupId && string.Equals(x.Label, y.Label, StringComparison.Ordinal);
 
         public int GetHashCode((string Label, int GroupId) obj)
-            => HashCode.Combine(obj.GroupId, StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Label ?? string.Empty));
+            => HashCode.Combine(obj.GroupId, StringComparer.Ordinal.GetHashCode(obj.Label ?? string.Empty));
     }
 
     #endregion
@@ -1093,7 +1095,18 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
                 continue;
 
             var refRow = valid.FirstOrDefault(r => IsPureRmLabel(r.SolutionLabel, pureRmRx)) ?? valid[0];
-            if (!refRow.Values.TryGetValue(element, out var refVal) || !refVal.HasValue || refVal.Value == 0m)
+            decimal? refVal = null;
+            for (int i = 0; i < valid.Count; i++)
+            {
+                if (valid[i].PivotIndex < refRow.PivotIndex)
+                    continue;
+                if (valid[i].Values.TryGetValue(element, out var v) && v.HasValue)
+                {
+                    refVal = v.Value;
+                    break;
+                }
+            }
+            if (!refVal.HasValue)
                 continue;
 
             int prevPivot = refRow.PivotIndex;
@@ -1380,10 +1393,10 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
             }
         }
 
-        var setSizes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var g in infos.GroupBy(x => x.Label, StringComparer.OrdinalIgnoreCase))
+        var setSizes = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var g in infos.GroupBy(x => x.Label, StringComparer.Ordinal))
         {
-            var counts = g.GroupBy(x => x.Element, StringComparer.OrdinalIgnoreCase).Select(gg => gg.Count()).ToList();
+            var counts = g.GroupBy(x => x.Element, StringComparer.Ordinal).Select(gg => gg.Count()).ToList();
             if (counts.Count == 0) { setSizes[g.Key] = 1; continue; }
 
             int gcd = counts[0];
@@ -1394,7 +1407,7 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
             setSizes[g.Key] = (gcd > 0 && total % gcd == 0) ? total / gcd : total;
         }
 
-        var labelCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var labelCounts = new Dictionary<string, int>(StringComparer.Ordinal);
 
         int updated = 0;
 
@@ -1596,13 +1609,13 @@ public sealed class DriftCorrectionService : IDriftCorrectionService
 
         public bool Equals((string Label, int GroupId, string Element) x, (string Label, int GroupId, string Element) y)
             => x.GroupId == y.GroupId
-               && string.Equals(x.Label, y.Label, StringComparison.OrdinalIgnoreCase)
-               && string.Equals(x.Element, y.Element, StringComparison.OrdinalIgnoreCase);
+               && string.Equals(x.Label, y.Label, StringComparison.Ordinal)
+               && string.Equals(x.Element, y.Element, StringComparison.Ordinal);
 
         public int GetHashCode((string Label, int GroupId, string Element) obj)
             => HashCode.Combine(obj.GroupId,
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Label ?? ""),
-                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Element ?? ""));
+                StringComparer.Ordinal.GetHashCode(obj.Label ?? ""),
+                StringComparer.Ordinal.GetHashCode(obj.Element ?? ""));
     }
 
     private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class

@@ -40,6 +40,11 @@ public class IsatisDbContext : DbContext
     public DbSet<CrmData> CrmData { get; set; } = null!;
 
     /// <summary>
+    /// Gets or sets the collection of CRM selections (row-level).
+    /// </summary>
+    public DbSet<CrmSelection> CrmSelections { get; set; } = null!;
+
+    /// <summary>
     /// Gets or sets the collection of change logs.
     /// </summary>
     public DbSet<ChangeLog> ChangeLogs { get; set; } = null!;

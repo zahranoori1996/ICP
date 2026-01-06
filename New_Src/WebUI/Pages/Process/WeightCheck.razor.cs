@@ -42,7 +42,7 @@ namespace WebUI.Pages.Process
 
             if (_projectId.HasValue)
             {
-                var result = await ProjectService.GetProjectAsync(_projectId.Value);
+                var result = await ProjectService.GetProjectAsync(_projectId.Value, includeLatestState: true);
                 if (result.Succeeded)
                     _projectName = result.Data?.ProjectName;
             }

@@ -47,7 +47,6 @@ public class RowCorrectionService : BaseCorrectionService, IRowCorrectionService
 
             var flatData = new List<ParsedDataPoint>();
             var allDetectedElements = new HashSet<string>(StringComparer.Ordinal);
-            var rmPattern = new Regex(@"\b(RM|CRM|STD|BLANK|BLNK)\b", RegexOptions.IgnoreCase);
 
             // اگر کاربر لیست خاصی داد، فیلتر می‌کنیم؛ وگرنه null (یعنی همه عناصر طبق پایتون)
             HashSet<string>? userSelectedElements = null;
@@ -75,8 +74,6 @@ public class RowCorrectionService : BaseCorrectionService, IRowCorrectionService
                         var lbl = labelEl.GetString();
                         if (!string.IsNullOrWhiteSpace(lbl)) sampleId = lbl;
                     }
-
-                    if (rmPattern.IsMatch(sampleId)) continue;
 
                     // استخراج نام عنصر
                     if (!root.TryGetProperty("Element", out var elementEl)) continue;

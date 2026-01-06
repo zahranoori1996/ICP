@@ -24,6 +24,20 @@ public class Project
     public string? Owner { get; set; }
 
     /// <summary>
+    /// Gets or sets the device used for the data (e.g., "Mass elan9000 1").
+    /// </summary>
+    public string Device { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the type of file associated with the project (e.g., "oes 4cc").
+    /// </summary>
+    public string FileType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets optional notes or description for the project.
+    /// </summary>
+    public string? Description { get; set; }
+    /// <summary>
     /// Gets or sets the date and time when the project was originally created.
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -41,6 +41,9 @@ public class DriftCorrectionRequest
 
     [JsonPropertyName("targetRmNum")]
     public int? TargetRmNum { get; set; }
+
+    [JsonPropertyName("previewOnly")]
+    public bool PreviewOnly { get; set; }
 }
 
 public class DriftCorrectionResult

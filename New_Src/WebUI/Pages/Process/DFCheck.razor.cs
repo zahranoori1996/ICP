@@ -35,7 +35,7 @@ namespace WebUI.Pages.Process
             _projectId = projectId ?? ProjectService.CurrentProjectId;
             if (_projectId.HasValue)
             {
-                var projectResult = await ProjectService.GetProjectAsync(_projectId.Value);
+                var projectResult = await ProjectService.GetProjectAsync(_projectId.Value, includeLatestState: true);
                 if (projectResult.Succeeded && projectResult.Data != null)
                 {
                     _projectName = projectResult.Data.ProjectName;

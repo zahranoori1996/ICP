@@ -18,6 +18,7 @@ public class CorrectionService
     public CorrectionService(IHttpClientFactory clientFactory, ILogger<CorrectionService> logger, AuthService authService)
     {
         _httpClient = clientFactory.CreateClient("Api");
+        _httpClient.Timeout = TimeSpan.FromMinutes(10);
         _logger = logger;
         _authService = authService;
         // ✅ تنظیم برای مپ کردن حروف کوچک/بزرگ (camelCase به PascalCase)

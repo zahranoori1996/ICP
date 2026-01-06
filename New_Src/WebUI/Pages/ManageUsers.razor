@@ -40,7 +40,7 @@
                         <MudTh>Username</MudTh>
                         <MudTh>Full Name</MudTh>
                         <MudTh>Position</MudTh>
-                        <MudTh Align="Align.Right">Action</MudTh>
+                        <MudTh Style="text-align: right;">Action</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Username">
@@ -54,12 +54,12 @@
                                 @context.Position
                             </MudChip>
                         </MudTd>
-                        <MudTd DataLabel="Action" Align="Align.Right">
+                        <MudTd DataLabel="Action" Style="text-align: right;">
                             <MudStack Row="true" Spacing="1">
                                 <MudIconButton Icon="@Icons.Material.Filled.Key" Color="Color.Warning" Size="Size.Small" 
-                                               OnClick="@(() => OpenChangePasswordDialog(context.Id))" Title="Change Password" />
+                                               OnClick="@(() => OpenChangePasswordDialog(context.Id))" title="Change Password" />
                                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" 
-                                               OnClick="@(() => DeleteUserConfirm(context.Id,context.Username))" Title="Delete User" />
+                                               OnClick="@(() => DeleteUserConfirm(context.Id,context.Username))" title="Delete User" />
                             </MudStack>
                         </MudTd>
                     </RowTemplate>

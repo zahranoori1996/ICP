@@ -31,13 +31,19 @@ namespace WebUI.Pages.Process
         private int _badSamples = 0;
         private decimal _passRate = 0;
         private string? _projectName;
+        
+        // --- Python Parity Fields ---
+        private string _searchTerm = "";
+        private int _decimalPlaces = 1;
+        private CancellationTokenSource? _debounceCts;
+        // ----------------------------
 
         protected override async Task OnInitializedAsync()
         {
             _projectId = projectId ?? ProjectService.CurrentProjectId;
             if (_projectId.HasValue)
             {
-                var projectResult = await ProjectService.GetProjectAsync(_projectId.Value);
+                var projectResult = await ProjectService.GetProjectAsync(_projectId.Value, includeLatestState: true);
                 if (projectResult.Succeeded && projectResult.Data != null)
                 {
                     _projectName = projectResult.Data.ProjectName;
@@ -128,6 +134,12 @@ namespace WebUI.Pages.Process
                 filtered = filtered.Where(r => r.SampleType == "RM");
             }
 
+            if (!string.IsNullOrWhiteSpace(_searchTerm))
+            {
+                var term = _searchTerm.Trim();
+                filtered = filtered.Where(r => r.SolutionLabel.Contains(term, StringComparison.OrdinalIgnoreCase));
+            }
+
             // Store filtered data and update total count for pagination
             _filteredRows = filtered.ToList();
             _totalVisibleRows = _filteredRows.Count;
@@ -166,6 +178,38 @@ namespace WebUI.Pages.Process
             StateHasChanged();
         }
         // ----------------------------------------------------------
+        
+        private async Task OnSearchChanged(string text)
+        {
+            _searchTerm = text;
+            _debounceCts?.Cancel();
+            _debounceCts = new CancellationTokenSource();
+            var token = _debounceCts.Token;
+
+            try
+            {
+                await Task.Delay(500, token);
+                if (!token.IsCancellationRequested)
+                {
+                    _currentPage = 1;
+                    ApplyFilters();
+                    StateHasChanged();
+                }
+            }
+            catch (TaskCanceledException) { }
+        }
+
+        private string FormatValue(decimal value)
+        {
+            // Python: formatted = f"{value:.{decimal_places}f}".rstrip('0').rstrip('.')
+            // C#: "F{_decimalPlaces}" then TrimEnd
+            var fmt = value.ToString($"F{_decimalPlaces}");
+            if (fmt.Contains('.'))
+            {
+                fmt = fmt.TrimEnd('0').TrimEnd('.');
+            }
+            return fmt;
+        }
 
         private string DetermineSampleType(AdvancedPivotRowDto row)
         {
@@ -230,6 +274,99 @@ namespace WebUI.Pages.Process
                 _isLoading = false;
             }
         }
+
+        // --- Action Handlers ---
+        private async Task OnSaveExcelClicked()
+        {
+            if (_projectId == null) return;
+            _isLoading = true;
+            StateHasChanged();
+            try
+            {
+                var result = await ReportService.ExportToExcelAsync(_projectId.Value, decimalPlaces: _decimalPlaces);
+                if (result.Succeeded && result.Data != null)
+                {
+                    var base64 = Convert.ToBase64String(result.Data);
+                    var fileName = $"{_projectName ?? "Project"}_Export.xlsx";
+                    await JSRuntime.InvokeVoidAsync("downloadFile", fileName, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+                    Snackbar.Add("Exported to Excel", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add(result.Message ?? "Export failed", Severity.Error);
+                }
+            }
+            finally
+            {
+                _isLoading = false;
+                StateHasChanged();
+            }
+        }
+
+        private async Task OnSaveRawExcelClicked()
+        {
+            if (_projectId == null) return;
+            _isLoading = true;
+            StateHasChanged();
+            try
+            {
+                var result = await ReportService.ExportRawExcelAsync(_projectId.Value);
+                if (result.Succeeded && result.Data != null)
+                {
+                    var base64 = Convert.ToBase64String(result.Data);
+                    var fileName = $"{_projectName ?? "Project"}_Raw.xlsx";
+                    await JSRuntime.InvokeVoidAsync("downloadFile", fileName, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+                    Snackbar.Add("Raw Data Exported", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add(result.Message ?? "Export failed", Severity.Error);
+                }
+            }
+            finally
+            {
+                _isLoading = false;
+                StateHasChanged();
+            }
+        }
+
+        private void OnClearFiltersClicked()
+        {
+            _searchTerm = "";
+            _showOnlyRm = false;
+            _decimalPlaces = 1;
+            // TODO: Clear column filters when implemented
+            _currentPage = 1;
+            ApplyFilters();
+            StateHasChanged();
+            Snackbar.Add("Filters cleared", Severity.Success);
+        }
+
+        private void OnFilterColumnClicked()
+        {
+            Snackbar.Add("Column Filter: Feature coming soon!", Severity.Info);
+        }
+
+        private void OnReportChangesClicked()
+        {
+            Snackbar.Add("Report Changes: Feature coming soon!", Severity.Info);
+        }
+
+        private void OnCompareRowsClicked()
+        {
+            Snackbar.Add("Compare Rows: Feature coming soon!", Severity.Info);
+        }
+
+        private void OnFindSimilarClicked()
+        {
+            Snackbar.Add("Find Similar: Feature coming soon!", Severity.Info);
+        }
+
+        private void OnCompareWithOreasClicked()
+        {
+            Snackbar.Add("Compare with OREAS: Feature coming soon!", Severity.Info);
+        }
+        // -----------------------
 
         public class ResultRow
         {

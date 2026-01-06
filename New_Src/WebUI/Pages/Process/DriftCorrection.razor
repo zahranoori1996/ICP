@@ -1,12 +1,17 @@
 @page "/process/drift"
 @using WebUI.Services
+@inject AuthService AuthService
 @inject ProjectService ProjectService
 @inject DriftService DriftService
 @inject PivotService PivotService
 @inject ISnackbar Snackbar
 
 <PageTitle>ICP - Drift Correction</PageTitle>
+@{
+    var user = AuthService.GetCurrentUser();
+    var isAuthenticated = user?.IsAuthenticated ?? false;
 
+}
 <NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
 
 @* Loading Overlay *@
@@ -85,7 +90,7 @@
                                FullWidth="true"
                                StartIcon="@Icons.Material.Filled.Analytics"
                                OnClick="AnalyzeDrift"
-                               Disabled="_isLoading"
+                               Disabled="_isLoading "
                                Class="mb-2">
                         Analyze Drift
                     </MudButton>
@@ -95,8 +100,8 @@
                                FullWidth="true"
                                StartIcon="@Icons.Material.Filled.PlayArrow"
                                OnClick="ApplyCorrection"
-                               Disabled="@(_isLoading || _analysisResult == null)">
-                        @if (_isApplying)
+                               Disabled="@(_isLoading || _analysisResult == null || (user?.Position?.Equals("Viewer", StringComparison.OrdinalIgnoreCase) ?? false))">
+                        @if (_isApplying )
                         {
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
                         }

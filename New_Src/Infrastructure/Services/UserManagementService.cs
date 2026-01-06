@@ -1,4 +1,4 @@
-using Application.DTOs;
+﻿using Application.DTOs;
 using Application.Interface;
 using Domain.Entities;
 using Infrastructure.Persistence;
@@ -239,6 +239,7 @@ public class UserManagementService : IUserManagementService
     {
         const int iterations = 10000;
         const int saltLength = 16;
+        const int hashLength = 32; // طول هش
 
         // Generate random salt
         byte[] salt = new byte[saltLength];
@@ -247,18 +248,21 @@ public class UserManagementService : IUserManagementService
             rng.GetBytes(salt);
         }
 
-        // Create hash using PBKDF2
-        using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations))
-        {
-            byte[] hash = pbkdf2.GetBytes(32);
+        // اصلاح شده: استفاده از متد استاتیک Pbkdf2 به جای سازنده قدیمی
+        // نکته مهم: برای سازگاری با کدهای قبلی حتما از SHA1 استفاده کنید
+        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password),
+            salt,
+            iterations,
+            HashAlgorithmName.SHA1,
+            hashLength);
 
-            // Combine salt and hash for storage
-            byte[] hashWithSalt = new byte[salt.Length + hash.Length];
-            Buffer.BlockCopy(salt, 0, hashWithSalt, 0, salt.Length);
-            Buffer.BlockCopy(hash, 0, hashWithSalt, salt.Length, hash.Length);
+        // Combine salt and hash for storage
+        byte[] hashWithSalt = new byte[salt.Length + hash.Length];
+        Buffer.BlockCopy(salt, 0, hashWithSalt, 0, salt.Length);
+        Buffer.BlockCopy(hash, 0, hashWithSalt, salt.Length, hash.Length);
 
-            return Convert.ToBase64String(hashWithSalt);
-        }
+        return Convert.ToBase64String(hashWithSalt);
     }
 
     /// <summary>
@@ -270,6 +274,7 @@ public class UserManagementService : IUserManagementService
         {
             const int saltLength = 16;
             const int iterations = 10000;
+            const int hashLength = 32;
 
             // Decode the hash
             byte[] hashWithSalt = Convert.FromBase64String(hash);
@@ -278,22 +283,24 @@ public class UserManagementService : IUserManagementService
             byte[] salt = new byte[saltLength];
             Buffer.BlockCopy(hashWithSalt, 0, salt, 0, saltLength);
 
-            // Create hash with same salt
-            using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations))
+            // اصلاح شده: استفاده از متد استاتیک Pbkdf2
+            byte[] computedHash = Rfc2898DeriveBytes.Pbkdf2(
+                Encoding.UTF8.GetBytes(password),
+                salt,
+                iterations,
+                HashAlgorithmName.SHA1,
+                hashLength);
+
+            // Compare hashes
+            for (int i = 0; i < computedHash.Length; i++)
             {
-                byte[] computedHash = pbkdf2.GetBytes(32);
-
-                // Compare hashes
-                for (int i = 0; i < computedHash.Length; i++)
+                if (hashWithSalt[salt.Length + i] != computedHash[i])
                 {
-                    if (hashWithSalt[salt.Length + i] != computedHash[i])
-                    {
-                        return false;
-                    }
+                    return false;
                 }
-
-                return true;
             }
+
+            return true;
         }
         catch
         {

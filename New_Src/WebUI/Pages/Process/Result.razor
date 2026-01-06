@@ -57,6 +57,22 @@
                         Data Filters
                     </MudText>
 
+                    <MudTextField T="string" ValueChanged="OnSearchChanged"
+                                  Placeholder="Search Solution Label..."
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Class="mb-4" />
+
+                    <MudSelect T="int" @bind-Value="_decimalPlaces" Label="Decimals" Variant="Variant.Outlined" Dense="true" Class="mb-4">
+                        <MudSelectItem Value="0">0</MudSelectItem>
+                        <MudSelectItem Value="1">1</MudSelectItem>
+                        <MudSelectItem Value="2">2</MudSelectItem>
+                        <MudSelectItem Value="3">3</MudSelectItem>
+                        <MudSelectItem Value="4">4</MudSelectItem>
+                    </MudSelect>
+
                     <MudCheckBox @bind-Value="_showOnlyRm"
                                  Label="Show Only RM Samples"
                                  Color="Color.Primary"
@@ -83,6 +99,25 @@
                         Refresh Data
                     </MudButton>
 
+
+                    <MudDivider Class="my-2" />
+                    
+                    <MudText Typo="Typo.h6" Class="mb-2">Actions</MudText>
+                    <MudGrid Class="mb-2">
+                        <MudItem xs="6">
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" OnClick="OnSaveExcelClicked" StartIcon="@Icons.Material.Filled.FileDownload">Save Excel</MudButton>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="OnSaveRawExcelClicked" StartIcon="@Icons.Material.Filled.RawOn">Save Raw Excel</MudButton>
+                        </MudItem>
+                    </MudGrid>
+                    
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" Class="mb-2" OnClick="OnFilterColumnClicked">Filter (Column)</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true" Class="mb-2" OnClick="OnClearFiltersClicked">Clear Filters</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Info" FullWidth="true" Class="mb-2" OnClick="OnReportChangesClicked">Report Changes</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true" Class="mb-2" OnClick="OnCompareRowsClicked">Compare Rows</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Tertiary" FullWidth="true" Class="mb-2" OnClick="OnFindSimilarClicked">Find Similar</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Dark" FullWidth="true" Class="mb-2" OnClick="OnCompareWithOreasClicked">Compare with OREAS</MudButton>
 
                     <MudDivider Class="my-2" />
 
@@ -237,7 +272,7 @@
                                 {
 
                                     var val = context.Values.GetValueOrDefault(col, 0);
-                                    <MudTd >@val.ToString("F4")</MudTd>
+                                    <MudTd >@FormatValue(val)</MudTd>
                                     @if (_showDiff)
                                     {
 

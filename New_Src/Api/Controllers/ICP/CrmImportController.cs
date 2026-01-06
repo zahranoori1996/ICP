@@ -85,7 +85,7 @@ public class CrmImportController : ControllerBase
                 for (int i = 3; i < values.Count && i - 3 < elementColumns.Count; i++)
                 {
                     var elementName = elementColumns[i - 3];
-                    if (double.TryParse(values[i], NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && value != 0)
+                    if (double.TryParse(values[i], NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
                     {
                         elementValues[elementName] = value;
                     }
@@ -189,7 +189,7 @@ public class CrmImportController : ControllerBase
                 for (int i = 3; i < values.Count && i - 3 < elementColumns.Count; i++)
                 {
                     var elementName = elementColumns[i - 3];
-                    if (double.TryParse(values[i], NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && value != 0)
+                    if (double.TryParse(values[i], NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
                     {
                         elementValues[elementName] = value;
                     }

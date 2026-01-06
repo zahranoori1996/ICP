@@ -20,7 +20,8 @@ public record DriftCorrectionRequest(
     string? BasePattern = null,
     string? ConePattern = null,
     string? ChangedBy = null,
-    bool DebugDumpRm = false
+    bool DebugDumpRm = false,
+    bool PreviewOnly = false
 )
 {
     public string? Keyword { get; init; }

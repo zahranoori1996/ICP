@@ -35,7 +35,7 @@ public class CreateUserDto
     public string FullName { get; set; } = string.Empty;
 
     [JsonPropertyName("position")]
-    public string Position { get; set; } = "User";
+    public string Position { get; set; } = "Viewer";
 }
 
 /// <summary>

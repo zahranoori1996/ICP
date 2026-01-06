@@ -32,7 +32,10 @@ public record ProjectLoadDto(
     DateTime LastModifiedAt,
     string? Owner,
     List<RawDataDto> RawRows,
-    string? LatestStateJson
+    string? LatestStateJson,
+    string? Device = null,
+    string? FileType = null,
+    string? Description = null
 );
 
 /// <summary>
@@ -50,7 +53,9 @@ public record ProjectListItemDto(
     DateTime CreatedAt,
     DateTime LastModifiedAt,
     string? Owner,
-    int RawRowsCount
+    int RawRowsCount,
+    string? Device = null,
+    string? FileType = null
 );
 
 /// <summary>
@@ -67,14 +72,14 @@ public interface IProjectPersistenceService
     /// <param name="rawRows">A list of raw data rows to save, if applicable.</param>
     /// <param name="stateJson">The initial JSON state configuration, if applicable.</param>
     /// <returns>A result containing details of the saved project.</returns>
-    Task<Result<ProjectSaveResult>> SaveProjectAsync(Guid projectId, string projectName, string? owner, List<RawDataDto>? rawRows, string? stateJson);
+    Task<Result<ProjectSaveResult>> SaveProjectAsync(Guid projectId, string projectName, string? owner, List<RawDataDto>? rawRows, string? stateJson, string? device = null, string? fileType = null, string? description = null);
 
     /// <summary>
     /// Retrieves the complete data and metadata for a specific project.
     /// </summary>
     /// <param name="projectId">The unique identifier of the project to load.</param>
     /// <returns>A result containing the full project details.</returns>
-    Task<Result<ProjectLoadDto>> LoadProjectAsync(Guid projectId);
+    Task<Result<ProjectLoadDto>> LoadProjectAsync(Guid projectId, bool includeRawRows = false, bool includeLatestState = false);
 
     /// <summary>
     /// Retrieves a paginated list of available projects with summary information.
@@ -90,4 +95,10 @@ public interface IProjectPersistenceService
     /// <param name="projectId">The unique identifier of the project to delete.</param>
     /// <returns>A result indicating true if the deletion was successful.</returns>
     Task<Result<bool>> DeleteProjectAsync(Guid projectId);
+
+    Task<Result<List<RawDataDto>>> GetRawDataRowsAsync(Guid projectId, int skip = 0, int take = 1000);
+
+    Task<Result<string?>> GetLatestProjectStateJsonAsync(Guid projectId);
+
+    Task<Result<byte[]?>> GetLatestProjectStateCompressedAsync(Guid projectId);
 }

@@ -44,4 +44,36 @@ public interface IOptimizationService
     /// <param name="projectId">The unique identifier of the project.</param>
     /// <returns>An object containing the debug dataset.</returns>
     Task<object> GetDebugSamplesAsync(Guid projectId);
+
+    /// <summary>
+    /// Retrieves CRM method options detected in a project to mirror Python CRM selection behavior.
+    /// </summary>
+    /// <param name="projectId">The unique identifier of the project.</param>
+    /// <returns>A result containing CRM method options per CRM id.</returns>
+    Task<Result<CrmOptionsResult>> GetCrmOptionsAsync(Guid projectId);
+
+    /// <summary>
+    /// Retrieves per-row CRM selection options for a project (Python-compatible).
+    /// </summary>
+    Task<Result<CrmSelectionOptionsResult>> GetCrmSelectionOptionsAsync(Guid projectId);
+
+    /// <summary>
+    /// Returns a small pivot preview for debugging (row order + selected element values).
+    /// </summary>
+    Task<object> GetPivotPreviewAsync(Guid projectId, int take, IEnumerable<string>? elements);
+
+    /// <summary>
+    /// Returns CRM reference values for a CRM id + method, limited to requested elements.
+    /// </summary>
+    Task<object> GetCrmPreviewAsync(string crmId, string? method, IEnumerable<string>? elements);
+
+    /// <summary>
+    /// Returns best-blank debug info (candidates + selected) for requested elements.
+    /// </summary>
+    Task<object> GetBlankPreviewAsync(Guid projectId, IEnumerable<string>? elements, decimal rangeLow, decimal rangeMid, decimal rangeHigh1, decimal rangeHigh2, decimal rangeHigh3, decimal rangeHigh4);
+
+    /// <summary>
+    /// Saves per-row CRM selections for a project.
+    /// </summary>
+    Task<Result<bool>> SaveCrmSelectionsAsync(CrmSelectionSaveRequest request, string? selectedBy);
 }

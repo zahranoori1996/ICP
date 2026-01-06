@@ -182,10 +182,10 @@ public class ImportService : IImportService
             // Get columns - either from detection or parse from first line
             var columns = detection.DetectedColumns;
             var delimiter = detection.DetectedDelimiter ?? ",";
-            
+
             int rowsRead = 0;
             string? line;
-            
+
             // Read first line for headers if not detected
             if ((columns == null || columns.Count == 0) && (line = await reader.ReadLineAsync()) != null)
             {
@@ -200,7 +200,7 @@ public class ImportService : IImportService
                 await reader.ReadLineAsync();
                 rowsRead++;
             }
-            
+
             // Ensure we have columns
             if (columns == null || columns.Count == 0)
             {
@@ -313,7 +313,10 @@ public class ImportService : IImportService
                         request.ProjectName,
                         request.Owner,
                         batch,
-                        null);
+                        null,
+                        request.Device,
+        request.FileType,
+        request.Description);
 
                     if (!saveResult.Succeeded)
                     {
@@ -337,7 +340,10 @@ public class ImportService : IImportService
                     request.ProjectName,
                     request.Owner,
                     batch,
-                    null);
+                    null,
+                    request.Device,
+        request.FileType,
+        request.Description);
 
                 if (!saveResult.Succeeded)
                 {
@@ -497,7 +503,10 @@ public class ImportService : IImportService
                         request.ProjectName,
                         request.Owner,
                         batch,
-                        null);
+                        null,
+                        request.Device,
+        request.FileType,
+        request.Description);
 
                     if (!saveResult.Succeeded)
                     {
@@ -521,7 +530,10 @@ public class ImportService : IImportService
                     request.ProjectName,
                     request.Owner,
                     batch,
-                    null);
+                    null,
+                    request.Device,
+        request.FileType,
+        request.Description);
 
                 if (!saveResult.Succeeded)
                 {
@@ -589,4 +601,64 @@ public class ImportService : IImportService
     }
 
     #endregion
+
+
+
+    /// <summary>
+    /// Analyzes the file content to categorize rows into Contracts, CRMs, and Blanks
+    /// similar to the desktop application logic.
+    /// </summary>
+// این متد را داخل کلاس ImportService قرار دهید
+
+    public async Task<Result<AnalysisPreviewResult>> AnalyzeFileAsync(Stream fileStream, string fileName)
+    {
+        try
+        {
+            var result = new AnalysisPreviewResult();
+
+            // اطمینان از اینکه استریم از ابتدا خوانده می‌شود
+            if (fileStream.CanSeek)
+            {
+                fileStream.Position = 0;
+            }
+
+            using var reader = new StreamReader(fileStream, leaveOpen: true);
+
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var trimmedLine = line.Trim();
+
+                // 1. تشخیص CRM
+                if (trimmedLine.StartsWith("CRM", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.CRMs.Add(trimmedLine);
+                }
+                // 2. تشخیص Blank
+                else if (trimmedLine.Contains("Blank", StringComparison.OrdinalIgnoreCase) ||
+                         trimmedLine.Contains("BLANK", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Blanks.Add(trimmedLine);
+                }
+                // 3. تشخیص قراردادها (مثلاً اگر با عدد شروع شود)
+                else if (char.IsDigit(trimmedLine[0]))
+                {
+                    result.Contracts.Add(trimmedLine);
+                }
+            }
+
+            // مقادیر نمونه برای دستگاه و نوع فایل
+            result.Device = "Mass alam9000 1";
+            result.FileType = Path.GetExtension(fileName).Trim('.');
+
+            return Result<AnalysisPreviewResult>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Analysis failed for {FileName}", fileName);
+            return Result<AnalysisPreviewResult>.Fail($"Analysis failed: {ex.Message}");
+        }
+    }
 }

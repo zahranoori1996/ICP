@@ -134,6 +134,9 @@
     .hidden-mobile{
         display:none;
     }
+    .max-600{
+        flex-direction: column;
+    }
 }
 
 @media (max-width: 380px) {

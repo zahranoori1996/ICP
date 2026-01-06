@@ -1,11 +1,16 @@
 ﻿@page "/crm"
 @using WebUI.Services
 @inject CrmService CrmService
+@inject AuthService AuthService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
 <PageTitle>ICP - CRM Database</PageTitle>
-
+@{
+    var user = AuthService.GetCurrentUser();
+    var isAuthenticated = user?.IsAuthenticated ?? false;
+    
+}
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
         <div class="d-flex justify-space-between align-center">
@@ -37,8 +42,8 @@
                               OnKeyUp="OnSearchChanged" />
             </MudItem>
 
-            <MudItem xs="12" md="4">
-                <MudSelect T="string"
+            <MudItem xs="12" md="4" Class="position-relative">
+                @* <MudSelect T="string"
                            Label="Analysis Method"
                            Variant="Variant.Outlined"
                            Value="_selectedMethod"
@@ -48,7 +53,98 @@
                     {
                         <MudSelectItem Value="@method">@method</MudSelectItem>
                     }
-                </MudSelect>
+                </MudSelect> *@
+                <MudTextField T="string"
+                              Label="Analysis Method"
+                              Variant="Variant.Outlined"
+                              Value="@_methodDisplayValue"
+                              ReadOnly="true"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@Icons.Material.Filled.ArrowDropDown"
+                              OnAdornmentClick="OpenMethodFilter"
+                              OnClick="OpenMethodFilter"
+                              Class="cursor-pointer" />
+
+                <MudPopover Open="@_isMethodPopoverOpen"
+                            AnchorOrigin="Origin.BottomCenter"
+                            TransformOrigin="Origin.TopCenter"
+                            RelativeWidth="DropdownWidth.Relative"
+                            MaxHeight="400"
+                            Class="method-popover">
+
+                    <MudPaper Elevation="0" Class="pa-2 d-flex flex-column gap-2" Style="width: 100%;">
+
+                        <MudTextField @bind-Value="_methodSearchText"
+                                      Placeholder="Search..."
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
+                                      Immediate="true" />
+
+                        <div style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 5px;">
+                            @foreach (var method in _analysisMethods.Where(m => string.IsNullOrEmpty(_methodSearchText) || m.Contains(_methodSearchText, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                <MudCheckBox T="bool?"
+                                             Value="@(_tempSelectedMethods.Contains(method))"
+                                             ValueChanged="@((val) => ToggleMethodSelection(method, val))"
+                                             Label="@method"
+                                             Dense="true"
+                                             Color="Color.Primary" />
+                            }
+                            @if (!_analysisMethods.Any())
+                            {
+                                <MudText Typo="Typo.caption" Class="pa-2">No methods available</MudText>
+                            }
+                        </div>
+
+                        <MudGrid Spacing="1" Class="mt-1">
+                            <MudItem xs="6">
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           FullWidth="true"
+                                           OnClick="SelectAllMethods"
+                                           Class="py-1"
+                                           Style="font-size: 0.7rem;">Select All</MudButton>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           FullWidth="true"
+                                           OnClick="DeselectAllMethods"
+                                           Class="py-1"
+                                           Style="font-size: 0.7rem;">Deselect All</MudButton>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           FullWidth="true"
+                                           OnClick="ApplyMethodFilter"
+                                           Class="py-1"
+                                           Style="font-size: 0.7rem;">OK</MudButton>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           FullWidth="true"
+                                           OnClick="CancelMethodFilter"
+                                           Class="py-1"
+                                           Style="font-size: 0.7rem;">Cancel</MudButton>
+                            </MudItem>
+                        </MudGrid>
+
+                    </MudPaper>
+                </MudPopover>
+
+                @if (_isMethodPopoverOpen)
+                {
+                    <div style="position:fixed; top:0; left:0; right:0; bottom:0; z-index: 100;" @onclick="CancelMethodFilter"></div>
+                }
+
             </MudItem>
             <MudItem xs="12" md="4">
                 <MudButton Variant="Variant.Outlined"
@@ -126,16 +222,28 @@
                                        Class="color-light-blue"
                                        OnClick="@(() => ViewCrm(context))"
                                        aria-label="View Details" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                       Size="Size.Small"
-                                       Class="color-dark-blue"
-                                       OnClick="@(() => EditCrm(context))"
-                                       aria-label="Edit" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                       Size="Size.Small"
-                                       Color="Color.Error"
-                                       OnClick="@(() => DeleteCrm(context))"
-                                       aria-label="Delete" />
+                        @if(user?.Position?.Equals("Admin", StringComparison.OrdinalIgnoreCase) ?? false)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Class="color-dark-blue"
+                                           OnClick="@(() => EditCrm(context))"
+                                           aria-label="Edit" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => DeleteCrm(context))"
+                                           aria-label="Delete" />
+                        }
+                        else if (user?.Position?.Equals("Analyst",StringComparison.OrdinalIgnoreCase)?? false)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Class="color-dark-blue"
+                                           OnClick="@(() => EditCrm(context))"
+                                           aria-label="Edit" />
+                        }
+
                     </MudTd>
                 </RowTemplate>
                 @* ❌ حذف PagerContent قدیمی *@
