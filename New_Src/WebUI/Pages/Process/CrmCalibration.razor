@@ -8,9 +8,7 @@
 @inject ISnackbar Snackbar
 
 <PageTitle>ICP - CRM Calibration</PageTitle>
-<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_isLoading" />
 
-@* Loading Overlay *@
 @if (_isLoading)
 {
     <div class="loading-overlay">
@@ -22,7 +20,8 @@
 }
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    @* Header Section *@
+
+    @* --- 1. هدر استاندارد (دقیقاً مشابه سایر صفحات) --- *@
     <MudPaper Elevation="0" Class="pa-4 mb-4 custom-card-all">
         <div class="d-flex justify-space-between align-center flex-wrap gap-2">
             <div>
@@ -39,539 +38,194 @@
         </div>
     </MudPaper>
 
-    @if (_projectId == null)
-    {
-        <MudAlert Severity="Severity.Warning">
-            Please select a project first.
-        </MudAlert>
-    }
-    else
-    {
-        <MudGrid Spacing="3">
-            @* Left Panel - Settings (Compact with Tabs) *@
-            <MudItem xs="12" lg="4" xl="3">
-                <MudPaper Elevation="0" Class="custom-card-all settings-panel">
-                    @* Element Selection - Always Visible *@
-                    <div class="pa-4 element-header">
-                        <MudText Typo="Typo.subtitle1" Class="fw-bold mb-3">
-                            <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Small" Class="me-2" />
-                            Focus Element
-                        </MudText>
-                        <MudSelect T="string"
-                                   Value="_focusElement"
-                                   ValueChanged="@(e => SetFocusElement(e))"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="mb-2">
-                            @foreach (var el in _allElements)
+    @* --- 2. بخش کنترل‌های دسکتاپ (Pivot Controls) --- *@
+    <MudPaper Elevation="0" Class="pa-3 mb-3 custom-card-all" Style="background-color: #f8f9fa; border: 1px solid #e9ecef;">
+        <MudText Typo="Typo.subtitle2" Class="mb-2 fw-bold" Style="color: #d81b60;">Pivot Controls</MudText>
+        <div class="d-flex align-center gap-2 flex-wrap">
+
+            @* دکمه اصلی عملیات *@
+            <MudButton Variant="Variant.Filled" Class="btn-desktop-green" OnClick="StartCheckCrmProcess">
+                Check CRM
+            </MudButton>
+
+            <MudButton Variant="Variant.Filled" Class="btn-desktop-green">
+                Manual CRM
+            </MudButton>
+
+            <div class="d-flex align-center gap-1 mx-2 p-control-group">
+                <MudText Typo="Typo.caption" Style="white-space:nowrap;">CRM Range (%):</MudText>
+                <MudNumericField @bind-Value="_minDiff" Variant="Variant.Outlined" Margin="Margin.Dense" Class="input-tiny" HideSpinButtons="true" />
+                <MudText Typo="Typo.caption">to</MudText>
+                <MudNumericField @bind-Value="_maxDiff" Variant="Variant.Outlined" Margin="Margin.Dense" Class="input-tiny" HideSpinButtons="true" />
+            </div>
+
+            <div class="d-flex align-center gap-1 mx-2 p-control-group">
+                <MudText Typo="Typo.caption" Style="white-space:nowrap;">Decimals:</MudText>
+                <MudSelect T="int" @bind-Value="_decimalPlaces" Variant="Variant.Outlined" Margin="Margin.Dense" Class="input-tiny" Style="min-width:60px;">
+                    <MudSelectItem Value="1">1</MudSelectItem>
+                    <MudSelectItem Value="2">2</MudSelectItem>
+                    <MudSelectItem Value="3">3</MudSelectItem>
+                </MudSelect>
+            </div>
+
+            <MudButton Variant="Variant.Filled" Class="btn-desktop-green">
+                Clear CRM
+            </MudButton>
+
+            <MudButton Variant="Variant.Filled" Class="btn-desktop-green" OnClick="RunOptimization">
+                Calib
+            </MudButton>
+
+            <MudButton Variant="Variant.Filled" Class="btn-desktop-green">
+                Export
+            </MudButton>
+        </div>
+    </MudPaper>
+
+    @* --- 3. جدول داده‌ها --- *@
+    <MudPaper Elevation="0" Class="pa-0 custom-card-all">
+
+        @if (_pivotData != null)
+        {
+            <div style="overflow-x: auto;">
+                <MudTable Items="@_pivotData.Rows"
+                          Hover="true"
+                          Striped="true"
+                          Dense="true"
+                          FixedHeader="true"
+                          Height="600px"
+                          RowsPerPage="50"
+                          Class="crm-desktop-table"
+                          Elevation="0">
+                    <HeaderContent>
+                        <MudTh Style="position: sticky; left: 0; background: white; z-index: 2; min-width: 150px;">Solution Label</MudTh>
+                        @foreach (var col in _displayColumns)
+                        {
+                            <MudTh>@col</MudTh>
+                        }
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd Style="position: sticky; left: 0; background: white; z-index: 1; font-weight: 600; border-right: 1px solid #eee;">
+                            @if (_crmSelectionRows.Any(c => c.SolutionLabel == context.SolutionLabel))
                             {
-                                <MudSelectItem Value="@el">@el</MudSelectItem>
+                                <MudIcon Icon="@Icons.Material.Filled.Bookmark" Size="Size.Small" Color="Color.Success" Class="me-1" Style="font-size: 14px;" />
                             }
-                        </MudSelect>
-                        <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Class="d-flex">
-                            <MudButton OnClick="PrevElement" StartIcon="@Icons.Material.Filled.ChevronLeft" Class="flex-grow-1">Prev</MudButton>
-                            <MudButton OnClick="NextElement" EndIcon="@Icons.Material.Filled.ChevronRight" Class="flex-grow-1">Next</MudButton>
-                        </MudButtonGroup>
-                    </div>
-
-                    <MudDivider />
-
-                    @* Tabbed Settings *@
-                    <MudTabs Elevation="0" Rounded="false" ApplyEffectsToContainer="true" Class="settings-tabs">
-                        @* Tab 1: Optimization Parameters *@
-                        <MudTabPanel Text="Parameters" Icon="@Icons.Material.Filled.Tune">
-                            <div class="pa-3">
-                                <MudGrid Spacing="2">
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_minDiff"
-                                                         Label="Min Diff %"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true"
-                                                         Step="1M" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_maxDiff"
-                                                         Label="Max Diff %"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true"
-                                                         Step="1M" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_maxIterations"
-                                                         Label="Max Iterations"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true"
-                                                         Min="10"
-                                                         Max="500" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_populationSize"
-                                                         Label="Population"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true"
-                                                         Min="10"
-                                                         Max="200" />
-                                    </MudItem>
-                                    <MudItem xs="12">
-                                        <MudCheckBox @bind-Value="_useMultiModel"
-                                                     Label="Use Multi-Model (A/B/C)"
-                                                     Color="Color.Primary"
-                                                     Dense="true" />
-                                    </MudItem>
-                                    <MudItem xs="12">
-                                        <MudSelect T="string"
-                                                   Label="Filter Elements"
-                                                   MultiSelection="true"
-                                                   @bind-SelectedValues="_selectedElements"
-                                                   Variant="Variant.Outlined"
-                                                   Dense="true">
-                                            @foreach (var el in _allElements)
-                                            {
-                                                <MudSelectItem Value="@el">@el</MudSelectItem>
-                                            }
-                                        </MudSelect>
-                                    </MudItem>
-                                </MudGrid>
-                            </div>
-                        </MudTabPanel>
-
-                        @* Tab 2: CRM Selection *@
-                        <MudTabPanel Text="CRM" Icon="@Icons.Material.Filled.TableChart" BadgeData="@(_crmSelectionRows.Count)" BadgeColor="Color.Primary">
-                            <div class="pa-3">
-                                @if (_crmSelectionRows.Any())
+                            @context.SolutionLabel
+                        </MudTd>
+                        @foreach (var col in _displayColumns)
+                        {
+                            <MudTd>
+                                @if (context.Values.TryGetValue(col, out var val) && val.HasValue)
                                 {
-                                    <MudTable Items="@_crmSelectionRows"
-                                              Dense="true"
-                                              Hover="true"
-                                              FixedHeader="true"
-                                              Height="280px"
-                                              Breakpoint="Breakpoint.None"
-                                              Class="crm-table"
-                                              Style="font-size:0.7rem;">
-                                        <HeaderContent>
-                                            <MudTh Style="font-size:0.7rem;">Label</MudTh>
-                                            <MudTh Style="font-size:0.7rem;">Row</MudTh>
-                                            <MudTh Style="font-size:0.7rem;">Selection</MudTh>
-                                        </HeaderContent>
-                                        <RowTemplate>
-                                            <MudTd DataLabel="Label" Style="font-size:0.7rem;">@context.SolutionLabel</MudTd>
-                                            <MudTd DataLabel="Row" Style="font-size:0.7rem;">@context.RowIndex</MudTd>
-                                            <MudTd DataLabel="Selection">
-                                                <MudSelect T="string"
-                                                           Value="@context.SelectedOption"
-                                                           ValueChanged="@GetRowSelectionChangedHandler(context)"
-                                                           Variant="Variant.Outlined"
-                                                           Dense="true"
-                                                           Margin="Margin.Dense">
-                                                    @foreach (var opt in GetRowOptions(context))
-                                                    {
-                                                        <MudSelectItem Value="@opt">@opt</MudSelectItem>
-                                                    }
-                                                </MudSelect>
-                                            </MudTd>
-                                        </RowTemplate>
-                                    </MudTable>
+                                    @val.Value.ToString($"F{_decimalPlaces}")
                                 }
                                 else
                                 {
-                                    <MudAlert Severity="Severity.Info" Dense="true">No CRM rows available</MudAlert>
+                                    <span class="mud-text-disabled">-</span>
                                 }
-                            </div>
-                        </MudTabPanel>
-
-                        @* Tab 3: Manual Adjustment *@
-                        <MudTabPanel Text="Manual" Icon="@Icons.Material.Filled.TouchApp">
-                            <div class="pa-3" >
-                                <MudTextField @bind-Value="_excludedLabelsInput"
-                                              Label="Exclude Labels"
-                                              Placeholder="comma or line separated"
-                                              Variant="Variant.Outlined"
-                                              Dense="true"
-                                              Lines="1"
-                                              Class="mb-3" />
-
-                                <MudGrid Spacing="1" Class="mb-2">
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_previewBlank"
-                                                         Label="Blank"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true"
-                                                         Margin="Margin.Dense"
-                                                         Step="0.01M" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_scaleRangeMin"
-                                                         Label="Scale Min"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true" 
-                                                         Margin="Margin.Dense" />
-                                    </MudItem>
-                                </MudGrid>
-
-                                <MudText Typo="Typo.caption" Class="mb-1">Preview Scale: @_previewScale.ToString("F2")</MudText>
-                                <MudSlider T="double" @bind-Value="_previewScale"
-                                           Min="0" Max="2" Step="0.01"
-                                           Color="Color.Primary"
-                                           Class="mb-2" />
-
-                                <MudGrid Spacing="1" Class="mb-1">
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_scaleRangeMin"
-                                                         Label="Range Min"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true"
-                                                         Margin="Margin.Dense" />
-                                    </MudItem>
-                                    <MudItem xs="6">
-                                        <MudNumericField @bind-Value="_scaleRangeMax"
-                                                         Label="Range Max"
-                                                         Variant="Variant.Outlined"
-                                                         Dense="true" 
-                                                         Margin="Margin.Dense" />
-                                    </MudItem>
-                                </MudGrid>
-
-                                <MudCheckBox @bind-Value="_scaleAbove50Only"
-                                             Label="Scale > 50 only"
-                                             Color="Color.Primary"
-                                             Dense="true"
-                                             Class="mb-2" />
-
-                                <MudButton Variant="Variant.Outlined"
-                                           Color="Color.Secondary"
-                                           FullWidth="true"
-                                           Size="Size.Small"
-                                           StartIcon="@Icons.Material.Filled.Tune"
-                                           OnClick="OpenRangesDialog"
-                                           Class="mb-1">
-                                    Acceptable Ranges
-                                </MudButton>
-                            </div>
-                        </MudTabPanel>
-                    </MudTabs>
-
-                    @* Action Buttons - Always Visible at Bottom *@
-                    <div class="pa-3 action-buttons">
-                        <MudDivider Class="mb-3" />
-                        
-                        @* Primary Actions *@
-                        <MudGrid Spacing="2" Class="mb-2">
-                            <MudItem xs="6">
-                                <MudButton Variant="Variant.Outlined"
-                                           Color="Color.Info"
-                                           FullWidth="true"
-                                           Size="Size.Small"
-                                           OnClick="PreviewManualAsync"
-                                           Disabled="_isLoading">
-                                    Preview
-                                </MudButton>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudButton Variant="Variant.Filled"
-                                           Color="Color.Success"
-                                           FullWidth="true"
-                                           Size="Size.Small"
-                                           OnClick="ApplyManualAsync"
-                                           Disabled="_isLoading">
-                                    Apply
-                                </MudButton>
-                            </MudItem>
-                        </MudGrid>
-
-                        @* Secondary Actions *@
-                        <MudGrid Spacing="2" Class="mb-3">
-                            <MudItem xs="6">
-                                <MudButton Variant="Variant.Outlined"
-                                           Color="Color.Warning"
-                                           FullWidth="true"
-                                           Size="Size.Small"
-                                           OnClick="ResetPreview">
-                                    Reset
-                                </MudButton>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudButton Variant="Variant.Outlined"
-                                           Color="Color.Error"
-                                           FullWidth="true"
-                                           Size="Size.Small"
-                                           OnClick="UndoManualAsync"
-                                           Disabled="_isLoading">
-                                    Undo
-                                </MudButton>
-                            </MudItem>
-                        </MudGrid>
-
-                        @* Main Actions *@
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Info"
-                                   FullWidth="true"
-                                   Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Assessment"
-                                   OnClick="GetCurrentStats"
-                                   Disabled="_isLoading"
-                                   Class="mb-2">
-                            Current Stats
-                        </MudButton>
-
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.AutoFixHigh"
-                                   OnClick="RunOptimization"
-                                   Disabled="_isLoading">
-                            @if (_isLoading)
-                            {
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                                <span>Optimizing...</span>
-                            }
-                            else
-                            {
-                                <span>Run Optimization</span>
-                            }
-                        </MudButton>
-                    </div>
-                </MudPaper>
-
-                @* Model Summary - Compact Card *@
-                @if (_result?.ModelSummary != null)
-                {
-                    <MudPaper Elevation="0" Class="pa-3 mt-3 custom-card-all">
-                        <MudText Typo="Typo.subtitle2" Class="mb-2 fw-bold">Model Summary</MudText>
-                        <div class="d-flex gap-2 flex-wrap">
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">A: @_result.ModelSummary.ModelACounts</MudChip>
-                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary">B: @_result.ModelSummary.ModelBCounts</MudChip>
-                            <MudChip T="string" Size="Size.Small" Color="Color.Tertiary">C: @_result.ModelSummary.ModelCCounts</MudChip>
-                        </div>
-                        <MudText Typo="Typo.caption" Class="mt-2">Most Used: <strong>@_result.ModelSummary.MostUsedModel</strong></MudText>
-                    </MudPaper>
-                }
-            </MudItem>
-
-            @* Right Panel - Results *@
-            <MudItem xs="12" lg="8" xl="9">
-                <MudPaper Elevation="0" Class="pa-4 custom-card-all">
-                    @if (_result == null)
-                    {
-                        <MudAlert Severity="Severity.Info">
-                            Click "Current Stats" to see pass/fail statistics, or "Run Optimization" to find optimal Blank & Scale values.
-                        </MudAlert>
-                    }
-                    else
-                    {
-                        @* Summary Cards - Horizontal Layout *@
-                        <div class="summary-cards mb-4">
-                            <MudPaper Elevation="0" Class="summary-card info">
-                                <MudText Typo="Typo.h4" Class="summary-value">@_result.TotalRmSamples</MudText>
-                                <MudText Typo="Typo.caption">RM Samples</MudText>
-                            </MudPaper>
-                            <MudPaper Elevation="0" Class="summary-card warning">
-                                <MudText Typo="Typo.h4" Class="summary-value">@_result.PassedBefore</MudText>
-                                <MudText Typo="Typo.caption">Passed Before</MudText>
-                            </MudPaper>
-                            <MudPaper Elevation="0" Class="summary-card success">
-                                <MudText Typo="Typo.h4" Class="summary-value">@_result.PassedAfter</MudText>
-                                <MudText Typo="Typo.caption">Passed After</MudText>
-                            </MudPaper>
-                            <MudPaper Elevation="0" Class="@GetImprovementCardClass()">
-                                <MudText Typo="Typo.h4" Class="summary-value">
-                                    @(_result.ImprovementPercent > 0 ? "+" : "")@_result.ImprovementPercent.ToString("F1")%
-                                </MudText>
-                                <MudText Typo="Typo.caption">Improvement</MudText>
-                            </MudPaper>
-                        </div>
-
-                        @* Element Optimizations Table *@
-                        <MudText Typo="Typo.h6" Class="mb-2">Element Optimization Results</MudText>
-                        <MudTable Items="@_result.ElementOptimizations.Values"
-                                  Hover="true"
-                                  Dense="true"
-                                  FixedHeader="true"
-                                  Breakpoint="Breakpoint.None"
-                                  HorizontalScrollbar="true"
-                                  Height="320px"
-                                  Class="results-table">
-                            <HeaderContent>
-                                <MudTh>Element</MudTh>
-                                <MudTh>Model</MudTh>
-                                <MudTh>Blank</MudTh>
-                                <MudTh>Scale</MudTh>
-                                <MudTh>Before</MudTh>
-                                <MudTh>After</MudTh>
-                                <MudTh>Mean Diff Before</MudTh>
-                                <MudTh>Mean Diff After</MudTh>
-                            </HeaderContent>
-                            <RowTemplate>
-                                <MudTd><MudText Class="fw-medium">@context.Element</MudText></MudTd>
-                                <MudTd>
-                                    <MudChip T="string" Size="Size.Small"
-                                             Color="@(context.SelectedModel == "A" ? Color.Primary : context.SelectedModel == "B" ? Color.Secondary : Color.Tertiary)">
-                                        @context.SelectedModel
-                                    </MudChip>
-                                </MudTd>
-                                <MudTd>@context.Blank.ToString("F4")</MudTd>
-                                <MudTd>@context.Scale.ToString("F4")</MudTd>
-                                <MudTd>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@context.PassedBefore</MudChip>
-                                </MudTd>
-                                <MudTd>
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@context.PassedAfter</MudChip>
-                                </MudTd>
-                                <MudTd>@context.MeanDiffBefore.ToString("F2")%</MudTd>
-                                <MudTd>
-                                    <MudText Color="@(Math.Abs(context.MeanDiffAfter) < Math.Abs(context.MeanDiffBefore) ? Color.Success : Color.Default)">
-                                        @context.MeanDiffAfter.ToString("F2")%
-                                    </MudText>
-                                </MudTd>
-                            </RowTemplate>
-                        </MudTable>
-
-                        @* Optimized Sample Details *@
-                        @if (_optimizedRows.Any() || _manualRows.Any())
-                        {
-                            <MudDivider Class="my-4" />
-                            <MudExpansionPanels Elevation="0">
-                                <MudExpansionPanel Text="@GetSampleDetailsTitle()" @bind-Expanded="_detailsExpanded" Class="sample-details-panel">
-                                    <TitleContent>
-                                        <div class="d-flex align-center gap-2">
-                                            <MudIcon Icon="@Icons.Material.Filled.TableView" Size="Size.Small" />
-                                            <MudText Typo="Typo.subtitle2">@GetSampleDetailsTitle()</MudText>
-                                            @if (_manualResult != null)
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Info">
-                                                    @_manualResult.PassedBefore → @_manualResult.PassedAfter
-                                                </MudChip>
-                                            }
-                                        </div>
-                                    </TitleContent>
-                                    <ChildContent>
-                                        <MudTextField @bind-Value="_sampleFilter"
-                                                      Label="Filter by Sample Label"
-                                                      Variant="Variant.Outlined"
-                                                      Dense="true"
-                                                      Adornment="Adornment.Start"
-                                                      AdornmentIcon="@Icons.Material.Filled.Search"
-                                                      Class="mb-3" />
-                                        <MudTable Items="@FilterRows(_manualRows.Any() ? _manualRows : _optimizedRows)"
-                                                  Hover="true"
-                                                  Dense="true"
-                                                  FixedHeader="true"
-                                                  Height="200px"
-                                                  Breakpoint="Breakpoint.None"
-                                                  HorizontalScrollbar="true">
-                                            <HeaderContent>
-                                                <MudTh>Sample</MudTh>
-                                                <MudTh>CRM</MudTh>
-                                                <MudTh>Element</MudTh>
-                                                <MudTh>Original</MudTh>
-                                                <MudTh>Optimized</MudTh>
-                                                <MudTh>CRM Value</MudTh>
-                                                <MudTh>Diff</MudTh>
-                                                <MudTh>Status</MudTh>
-                                            </HeaderContent>
-                                            <RowTemplate>
-                                                <MudTd>@context.SolutionLabel</MudTd>
-                                                <MudTd>@context.CrmId</MudTd>
-                                                <MudTd>@context.Element</MudTd>
-                                                <MudTd>@(context.OriginalValue?.ToString("F4") ?? "-")</MudTd>
-                                                <MudTd>@(context.OptimizedValue?.ToString("F4") ?? "-")</MudTd>
-                                                <MudTd>@(context.CrmValue?.ToString("F4") ?? "-")</MudTd>
-                                                <MudTd>
-                                                    <MudText Color="@(context.IsPassed ? Color.Success : Color.Error)">
-                                                        @context.DiffAfter.ToString("F2")%
-                                                    </MudText>
-                                                </MudTd>
-                                                <MudTd>
-                                                    @if (context.IsPassed)
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" />
-                                                    }
-                                                </MudTd>
-                                            </RowTemplate>
-                                        </MudTable>
-                                    </ChildContent>
-                                </MudExpansionPanel>
-                            </MudExpansionPanels>
+                            </MudTd>
                         }
-                    }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    }
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex flex-column justify-center align-center py-8" style="min-height: 300px;">
+                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" Class="mb-4" Style="font-size: 48px; opacity: 0.3;" />
+                <MudText Typo="Typo.h6" Class="mb-2">No Data Loaded</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Please ensure a project is selected.</MudText>
+            </div>
+        }
+    </MudPaper>
+
 </MudContainer>
 
-@* Acceptable Ranges Dialog *@
-<MudDialog @bind-Visible="_rangesDialogVisible" Options="new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true }">
+@* --- Dialog Wizard (بدون تغییر) --- *@
+<MudDialog @bind-Visible="_isCrmDialogVisible" Options="new DialogOptions { BackdropClick = false, MaxWidth = MaxWidth.Small }">
     <TitleContent>
         <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.Tune" Class="me-2" />
-            Acceptable Ranges Configuration
+            <MudIcon Icon="@Icons.Material.Filled.PlaylistAddCheck" Class="me-2" />
+            Select CRM for @_currentConflictRow?.SolutionLabel
         </MudText>
     </TitleContent>
     <DialogContent>
-        <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
-            Configure the acceptable range thresholds for different value magnitudes.
-        </MudText>
-        <MudGrid Spacing="2">
-            <MudItem xs="6">
-                <MudNumericField @bind-Value="_rangeLow"
-                                 Label="|x| < 10 (±absolute)"
-                                 Variant="Variant.Outlined"
-                                 Dense="true"
-                                 Step="0.5M"
-                                 HelperText="Absolute tolerance" />
-            </MudItem>
-            <MudItem xs="6">
-                <MudNumericField @bind-Value="_rangeMid"
-                                 Label="10 ≤ |x| < 100 (%)"
-                                 Variant="Variant.Outlined"
-                                 Dense="true"
-                                 Step="1M"
-                                 HelperText="Percentage tolerance" />
-            </MudItem>
-            <MudItem xs="6">
-                <MudNumericField @bind-Value="_rangeHigh1"
-                                 Label="100 ≤ |x| < 1000 (%)"
-                                 Variant="Variant.Outlined"
-                                 Dense="true"
-                                 Step="1M" />
-            </MudItem>
-            <MudItem xs="6">
-                <MudNumericField @bind-Value="_rangeHigh2"
-                                 Label="1000 ≤ |x| < 10000 (%)"
-                                 Variant="Variant.Outlined"
-                                 Dense="true"
-                                 Step="1M" />
-            </MudItem>
-            <MudItem xs="6">
-                <MudNumericField @bind-Value="_rangeHigh3"
-                                 Label="10000 ≤ |x| < 100000 (%)"
-                                 Variant="Variant.Outlined"
-                                 Dense="true"
-                                 Step="1M" />
-            </MudItem>
-            <MudItem xs="6">
-                <MudNumericField @bind-Value="_rangeHigh4"
-                                 Label="|x| ≥ 100000 (%)"
-                                 Variant="Variant.Outlined"
-                                 Dense="true"
-                                 Step="1M" />
-            </MudItem>
-        </MudGrid>
+        <MudText Class="mb-3">Multiple CRMs found. Please select one:</MudText>
+        @if (_currentConflictRow != null)
+        {
+            @* استفاده از key باعث بازنشانی کامل وضعیت رادیوها در هر مرحله می‌شود *@
+            <div @key="_currentStepKey">
+                <MudRadioGroup @bind-Value="_tempSelectedCrmOption">
+                    @foreach (var opt in GetRowAllOptions(_currentConflictRow))
+                    {
+                        <MudRadio Value="@opt" Color="Color.Success" Dense="true">@opt</MudRadio>
+                    }
+                </MudRadioGroup>
+            </div>
+        }
     </DialogContent>
     <DialogActions>
-        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ResetRanges">Reset to Default</MudButton>
-        <MudSpacer />
-        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="CloseRangesDialog">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyRangesAsync">Apply</MudButton>
+        <MudText Typo="Typo.caption" Class="me-auto mud-text-secondary">
+            Remaining: @_conflictQueue.Count
+        </MudText>
+
+        <MudButton OnClick="CancelCrmProcess" Variant="Variant.Text" Color="Color.Error">Cancel</MudButton>
+
+        <MudButton OnClick="ConfirmCrmSelection" Variant="Variant.Filled" Color="Color.Success">Confirm</MudButton>
     </DialogActions>
 </MudDialog>
 
 <style>
-    /* Loading Overlay */
+    /* استایل دکمه‌های سبز دسکتاپی */
+    .btn-desktop-green {
+        background-color: #2e7d32 !important;
+        color: white !important;
+        font-weight: 500;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        height: 36px;
+    }
+
+        .btn-desktop-green:hover {
+            background-color: #1b5e20 !important;
+        }
+
+    /* اینپوت‌های کوچک */
+    .input-tiny {
+        width: 60px;
+        background-color: white;
+    }
+
+        .input-tiny .mud-input-slot {
+            padding: 4px 8px !important;
+            font-size: 0.85rem;
+        }
+
+    /* تنظیمات جدول */
+    .crm-desktop-table {
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+        .crm-desktop-table .mud-table-head .mud-table-cell {
+            background-color: #f5f5f5;
+            color: #424242;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .crm-desktop-table .mud-table-body .mud-table-cell {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-bottom: 1px solid #f0f0f0;
+            border-right: 1px solid #f0f0f0;
+        }
+
     .loading-overlay {
         position: fixed;
         top: 0;
@@ -579,132 +233,9 @@
         width: 100%;
         height: 100%;
         background-color: rgba(0, 0, 0, 0.2);
+        z-index: 9999;
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 9999;
-    }
-
-    /* Settings Panel */
-    .settings-panel {
-        display: flex;
-        flex-direction: column;
-        max-height: calc(100vh - 200px);
-        overflow: hidden;
-    }
-
-    .element-header {
-        flex-shrink: 0;
-    }
-
-    .settings-tabs {
-        flex: 1;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .settings-tabs .mud-tabs-panels {
-        flex: 1;
-            overflow-y: hidden;
-            max-height: none;
-    }
-
-    .action-buttons {
-        flex-shrink: 0;
-        background: var(--mud-palette-surface);
-    }
-
-    /* Summary Cards */
-    .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-    }
-
-    @@media (max-width: 960px) {
-        .summary-cards {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-
-    @@media (max-width: 600px) {
-        .summary-cards {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .summary-card {
-        padding: 16px;
-        text-align: center;
-        border-radius: 8px;
-        transition: transform 0.2s ease;
-    }
-
-    .summary-card:hover {
-        transform: translateY(-2px);
-    }
-
-    .summary-card.info {
-        background: var(--mud-palette-info-lighten);
-    }
-
-    .summary-card.warning {
-        background: var(--mud-palette-warning-lighten);
-    }
-
-    .summary-card.success {
-        background: var(--mud-palette-success-lighten);
-    }
-
-    .summary-card.error {
-        background: var(--mud-palette-error-lighten);
-    }
-
-    .summary-value {
-        font-weight: 700;
-        color: var(--mud-palette-text-primary);
-    }
-
-    /* Tables */
-    .results-table,
-    .crm-table {
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-        /* فقط برای جدول نتایج */
-        .results-table .mud-table-cell {
-            white-space: nowrap;
-        }
-
-        /* برای CRM اجازه بده فیت بشه */
-        .crm-table .mud-table-cell {
-            white-space: normal;
-        }
-
-    .mud-table-dense * .mud-table-row .mud-table-cell {
-        padding: 4px 12px;
-    }
-
-    /* Sample Details Panel */
-    .sample-details-panel {
-        border: 1px solid var(--mud-palette-lines-default);
-        border-radius: 8px;
-    }
-
-    .sample-details-panel .mud-expand-panel-header {
-        padding: 12px 16px;
-    }
-
-    /* Responsive adjustments */
-    @@media (max-width: 1280px) {
-        .settings-panel {
-            max-height: none;
-        }
-
-        .settings-tabs .mud-tabs-panels {
-            max-height: 300px;
-        }
     }
 </style>

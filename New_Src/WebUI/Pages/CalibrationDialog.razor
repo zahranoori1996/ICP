@@ -1,0 +1,206 @@
+﻿@page "/calibration-dialog"
+@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Class="fw-bold">Verification Plot</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid Class="h-100" Spacing="2">
+
+            @* --- پنل سمت چپ: کنترل‌ها --- *@
+            <MudItem xs="12" md="3" lg="3" Class="d-flex flex-column gap-2" Style="border-right: 1px solid #ddd; height: 80vh; overflow-y: auto;">
+
+                <MudPaper Elevation="0" Class="pa-2 custom-control-panel">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1 fw-bold">Controls</MudText>
+
+                    @* دراپ‌دان انتخاب عنصر *@
+                    @* <MudSelect T="string" Label="Select Element" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Dense="true" @bind-Value="SelectedElement">
+                        @foreach (var element in Elements)
+                        {
+                            <MudSelectItem Value="@element">@element</MudSelectItem>
+                        }
+                    </MudSelect> *@
+
+                    <MudSelect T="string" Label="" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                               @bind-Value="SelectedElement" Class="mb-2 bg-white">
+                        @foreach (var element in Elements)
+                        {
+                            <MudSelectItem Value="@element">@element</MudSelectItem>
+                        }
+                    </MudSelect>
+
+
+                    @* دکمه‌های بعدی/قبلی *@
+                    <div class="d-flex gap-2 mb-2">
+                        @* دکمه Previous: اگر ایندکس 0 باشد توسی، در غیر این صورت سبز *@
+                        <MudButton Variant="Variant.Filled"
+                                   FullWidth="true"
+                                   Class="@(Elements.IndexOf(SelectedElement) > 0 ? "btn-green" : "btn-grey")"
+                                   OnClick="GoToPrevious"
+                                   Disabled="@(Elements.IndexOf(SelectedElement) == 0)">
+                            Previous
+                        </MudButton>
+
+                        @* دکمه Next: اگر ایندکس آخر باشد توسی، در غیر این صورت سبز *@
+                        <MudButton Variant="Variant.Filled"
+                                   FullWidth="true"
+                                   Class="@(Elements.IndexOf(SelectedElement) < Elements.Count - 1 ? "btn-green" : "btn-grey")"
+                                   OnClick="GoToNext"
+                                   Disabled="@(Elements.IndexOf(SelectedElement) == Elements.Count - 1)">
+                            Next
+                        </MudButton>
+                    </div>
+
+                    @* چک‌باکس‌های ردیف اول *@
+                    <div class="d-flex gap-2 flex-wrap mb-2">
+                        <MudCheckBox T="bool" Label="Certificate" Dense="true" Color="Color.Success" Checked="true" Size="Size.Small" />
+                        <MudCheckBox T="bool" Label="CRM" Dense="true" Color="Color.Success" Checked="true" Size="Size.Small" />
+                    </div>
+                    <MudCheckBox T="bool" Label="Acceptable Range" Dense="true" Color="Color.Success" Checked="true" Size="Size.Small" Class="mb-2" />
+
+                    @* دکمه‌های عملیاتی ردیف اول *@
+                    <div class="d-flex gap-2 mb-2">
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Exclude from Correct</MudButton>
+                        <MudCheckBox T="bool" Label="Scale >50 only" Dense="true" Size="Size.Small" />
+                    </div>
+
+                    <div class="d-flex gap-2 mb-3">
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Ranges</MudButton>
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Select Verifications</MudButton>
+                    </div>
+
+                    @* Scale Application Range *@
+                    <MudText Typo="Typo.caption" Class="fw-bold">Scale Application Range</MudText>
+                    <div class="d-flex gap-1 align-center mb-3 p-1" style="border:1px solid #ccc; border-radius:4px;">
+                        <MudTextField T="string" Placeholder="Min" Variant="Variant.Outlined" Margin="Margin.Dense" Class="input-tiny" />
+                        <MudTextField T="string" Placeholder="Max" Variant="Variant.Outlined" Margin="Margin.Dense" Class="input-tiny" />
+                        <MudText Typo="Typo.caption" style="white-space:nowrap;">Scale Range: Not Set</MudText>
+                    </div>
+
+                    @* Preview Blank & Scale *@
+                    <div class="d-flex gap-2 align-center mb-2">
+                        <MudTextField T="decimal" Label="Preview Blank" Value="0.000m" Variant="Variant.Outlined" Margin="Margin.Dense" Class="bg-white" />
+                        <MudButton Variant="Variant.Filled" Class="btn-green" Style="font-size: 10px;">Reset Blank and Scale</MudButton>
+                    </div>
+
+                    <MudText Typo="Typo.caption">Preview Scale (0-2):</MudText>
+                    <MudSlider T="double" Min="0" Max="2" Value="1.0" Color="Color.Success" Class="mb-2" />
+
+                    @* اطلاعات متنی *@
+                    <div class="info-text mb-3">
+                        <MudText Typo="Typo.body2">Scale: 1.00</MudText>
+                        <MudText Typo="Typo.body2">Blanks:</MudText>
+                        <MudText Typo="Typo.caption" Class="d-block ms-2">BLANK a: 0.732</MudText>
+                        <MudText Typo="Typo.caption" Class="d-block ms-2">blank-1751-1: 11.6845</MudText>
+                        <MudText Typo="Typo.caption" Class="d-block ms-2">blank-22554-1754: 2.4503</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-1">Calibration: [0.2 to 5]</MudText>
+                    </div>
+
+                    @* فیلتر *@
+                    <MudTextField T="string" Placeholder="Enter filter text" Label="Filter Labels (e.g., rm):" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3 bg-white" />
+
+                    @* دکمه‌های پایانی *@
+                    <div class="d-flex gap-2 mb-2">
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Report</MudButton>
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Apply Our Model</MudButton>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Undo</MudButton>
+                        <MudButton Variant="Variant.Filled" FullWidth="true" Class="btn-green">Correct</MudButton>
+                    </div>
+
+                </MudPaper>
+            </MudItem>
+
+            @* --- پنل سمت راست: نمودارها --- *@
+            <MudItem xs="12" md="9" lg="9" Class="d-flex flex-column gap-3" Style="height: 80vh;">
+                @* نمودار بالا *@
+                <MudPaper Class="d-flex justify-center align-center flex-grow-1 border-1" Elevation="0" Style="border: 1px solid #ccc; background: white;">
+                    <MudText Typo="Typo.h6" Color="Color.Default">Chart 1 Placeholder</MudText>
+                    @* اینجا باید کامپوننت نمودار (مثل Plotly یا ApexCharts) قرار بگیرد *@
+                </MudPaper>
+
+                @* نمودار پایین *@
+                <MudPaper Class="d-flex justify-center align-center flex-grow-1 border-1" Elevation="0" Style="border: 1px solid #ccc; background: white;">
+                    <MudText Typo="Typo.h6" Color="Color.Default">Chart 2 Placeholder</MudText>
+                </MudPaper>
+            </MudItem>
+
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Default">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .custom-control-panel {
+        background-color: #f4f4f4; /* رنگ پس‌زمینه پنل کنترل */
+    }
+
+    .btn-green {
+        background-color: #388e3c !important; /* رنگ سبز دکمه‌های تصویر */
+        color: white !important;
+        font-size: 0.75rem;
+        text-transform: none;
+        padding: 4px 8px;
+    }
+
+    .btn-grey {
+        background-color: #e0e0e0 !important;
+        color: black !important;
+        font-size: 0.75rem;
+        text-transform: none;
+    }
+
+    .input-tiny .mud-input-slot {
+        font-size: 0.8rem;
+        padding: 6px !important;
+    }
+
+    .bg-white {
+        background-color: white;
+    }
+
+    .info-text {
+        font-family: monospace;
+        font-size: 0.8rem;
+    }
+</style>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public List<string> Elements { get; set; } = new();
+
+    private string SelectedElement { get; set; } = "";
+
+    protected override void OnInitialized()
+    {
+        if (Elements.Any())
+        {
+            SelectedElement = Elements.First();
+        }
+    }
+
+    private void GoToNext()
+    {
+        var currentIndex = Elements.IndexOf(SelectedElement);
+        if (currentIndex < Elements.Count - 1)
+        {
+            SelectedElement = Elements[currentIndex + 1];
+        }
+    }
+
+    private void GoToPrevious()
+    {
+        var currentIndex = Elements.IndexOf(SelectedElement);
+        if (currentIndex > 0)
+        {
+            SelectedElement = Elements[currentIndex - 1];
+        }
+    }
+
+    private void Close() => MudDialog?.Close(DialogResult.Ok(true));
+}
